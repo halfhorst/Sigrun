@@ -154,7 +154,6 @@ class Sigrun:
                     await self.async_handle_command(command_name,
                                                     discord_connection,
                                                     message.d)
-                await asyncio.sleep(1)  # TODO: WHY IS THIS NECCESSARY
 
         self.loop.create_task(_run())
 
