@@ -1,330 +1,481 @@
-import asyncio
-import atexit
-import datetime
-import os
-import signal
-import traceback
-import subprocess
-import threading
+import time
+from decimal import Decimal
+from datetime import date
+from typing import List, Dict
 
-import pkg_resources
-import psutil
+import boto3
+from boto3.dynamodb.conditions import Key
 from loguru import logger
 
-from sigrun.connection import (DiscordActivityType,
-                               DiscordConnection,
-                               DiscordConnectionException)
+CHAT_INPUT_TYPE = 1
+STRING_OPTION_TYPE = 3
+
+# Cryptic validation note:
+# Lambda EFS mount requires path begin with /mnt.
+SERVER_DATA_ROOT = "/mnt/server_data"
+VALHEIM_TASK_FAMILY = "Valheim"
+DYNAMO_DB_TABLE = "GameServerTable"
+
+class SigrunCommand:
+    """Base class for a Sigrun command. Supports querying for relevant AWS constructs."""
+
+    ecs_client = boto3.client("ecs")
+    ec2_client = boto3.client('ec2')
+    ddb_resource = boto3.resource('dynamodb')
+
+    @classmethod
+    def get_metadata(cls):
+        """Get command metadata for registering the command
+        with Discord."""
+        raise NotImplementedError
+    
+    @classmethod
+    def handler(cls, options: list):
+        """The handler for the command when it is invoked."""
+        raise NotImplementedError
+
+    @classmethod
+    def get_option(cls, name: str, options: list):
+        """Retrieve a named option from the options list."""
+        return [o for o in options if o["name"] == name][0]["value"]
+
+    @classmethod
+    def get_vpc(cls) -> str:
+        vpcs = cls.ec2_client.describe_vpcs(Filters=[{"Name": "tag:Name", "Values": ["SigrunAppStack/GameServerVpc"]}])
+        if vpcs["ResponseMetadata"]["HTTPStatusCode"] != 200:
+            raise RuntimeError(f"Failed to successfully query for vpc data.")
+        elif len(vpcs["Vpcs"]) != 1:
+            raise RuntimeError("Didn't find exactly one VPC. This is unexpected")
+
+        return vpcs["Vpcs"][0]["VpcId"]
+
+    @classmethod
+    def get_subnet_id(cls, vpc_id: str) -> str:
+        subnets = cls.ec2_client.describe_subnets(Filters=[{"Name": "vpc-id", "Values": [vpc_id]}])
+        if subnets['ResponseMetadata']["HTTPStatusCode"] != 200:
+            raise RuntimeError(f"Failed to successfully query for subnet data.")
+        elif len(subnets["Subnets"]) != 1:
+            raise RuntimeError(f"Didn't find exactly one subnet. This is unexpected.")
+
+        return subnets["Subnets"][0]["SubnetId"]
+
+    @classmethod
+    def get_security_group_ids(cls, vpc_id: str) -> List[str]:
+        security_groups = cls.ec2_client.describe_security_groups(Filters=[
+            {"Name": "vpc-id", "Values": [vpc_id]},
+            {"Name": "group-name", "Values": ["FileSystemSecurityGroup", "GameServerSecurityGroup"]}])
+
+        if security_groups["ResponseMetadata"]["HTTPStatusCode"] != 200:
+            raise RuntimeError("Failed to successfully query for security group data.")
+        elif len(security_groups["SecurityGroups"]) != 2:
+            raise RuntimeError("Didn't find exactly two security groups. This is unexpected.")
+
+        return [sg["GroupId"] for sg in security_groups["SecurityGroups"]]
+    
+    @classmethod
+    def get_tasks(cls) -> List:
+        tasks = cls.ecs_client.list_tasks(cluster="GameServerCluster")
+        if tasks["ResponseMetadata"]["HTTPStatusCode"] != 200:
+            raise RuntimeError("Failed to query for list of tasks.")
+        
+        if len(tasks["taskArns"]) == 0:
+            return []
+
+        task_descriptions = cls.ecs_client.describe_tasks(cluster="GameServerCluster", 
+                                            tasks=tasks["taskArns"], include=["TAGS"] )
+        if task_descriptions["ResponseMetadata"]["HTTPStatusCode"] != 200:
+            raise RuntimeError("Failed to query for task descriptions.")
+
+        return task_descriptions["tasks"]
+
+    @classmethod
+    def get_public_ip(cls, elastic_network_interface_id: str) -> str:
+        eni = boto3.resource('ec2').NetworkInterface(elastic_network_interface_id)
+
+        return eni.association_attribute['PublicIp']
 
 
-class Sigrun:
-    """
-    Sigrun is a Discord bot for managing Valheim servers.
-    It instantiates a Discord connection, indicates its commands, and
-    handles them. The Discord connection manages all low-level details,
-    bubbling up only interactions for this bot to handle.
+class ServerStatus(SigrunCommand):
 
-    The main function of Sigrun is to manage a Valheim server. On init
-    it spawns the valheim server and records the PID. This PID is used
-    to implement Sigrun's commands.
+    name = "server-status"
 
-    A mutex is used to protect against conccurent manipulation of the PID.
+    @classmethod
+    def get_description(cls):
+        return "List server status and details for all existing Valheim worlds."
 
-    """
+    @classmethod
+    def get_metadata(cls):
+        return {
+            "name": cls.name,
+            "description": cls.get_description(),
+            "default_permission": True,
+            "type": CHAT_INPUT_TYPE
+        }
 
-    def __init__(self):
-        self.loop = asyncio.get_event_loop()
-        self.loop.add_signal_handler(
-            signal.SIGINT, lambda: self.log_and_stop("SIGINT"))
-        self.loop.add_signal_handler(
-            signal.SIGTERM, lambda: self.log_and_stop("SIGTERM")
+    @classmethod
+    def handler(cls, options: list):
+        table = cls.ddb_resource.Table(DYNAMO_DB_TABLE)
+
+        world_records = table.query(
+            KeyConditionExpression=Key("game").eq("Valheim")
         )
-        self.loop.set_exception_handler(self.exception_handler)
+        if world_records["ResponseMetadata"]['HTTPStatusCode'] != 200:
+            logger.error("Failed to query DynamoDb")
 
-        self.credentials = self.get_credentials()
+        if "Items" not in world_records:
+            world_records = {}
+        else:
+            world_records = {record["worldName"]: record for record in world_records["Items"]}
 
-        self.task_handlers = {"server-status": self.handle_server_status,
-                              "server-update": self.handle_server_update,
-                              "server-down": self.handle_server_down,
-                              "server-up": self.handle_server_up}
+        # TODO: Get more granular start time?
+        tasks = cls.get_tasks()
+        running_world_data = {}
+        for task in tasks:
+            tags = {tag["key"]: tag["value"] for tag in task["tags"]}
+            world = tags["sigrun-world"]
+            eni_id = None
+            for attachment in task["attachments"]:
+                if attachment["type"] == "ElasticNetworkInterface":
+                    for detail in attachment["details"]:
+                        if detail["name"] == "networkInterfaceId":
+                            eni_id = detail["value"]
+            running_world_data[world] = {"publicIp": cls.get_public_ip(eni_id), "status": task["lastStatus"]}
 
-        self.lock = threading.Lock()
-        self.lock_message = ("I can't do that right now. Someone else "
-                             "has asked to manipulate the server.")
+        for world, data in world_records.items():
+            data.update(running_world_data.get(world, {"publicIp": None}))
 
-        self.server_script = pkg_resources.resource_filename("sigrun",
-                                                             "scripts/test_run.sh")
-        self.update_script = pkg_resources.resource_filename("sigrun",
-                                                             "scripts/test_update.sh")
-        self.server_proc = None
+        # TODO: Update the records so they are eventually consistent w.r.t state? do I care?
 
-    def start_server(self) -> bool:
-        """Attempts to start the server. Sets `server_proc` to the popen object.
-        Will fail and return False if a server is already running,
-        otherwise returns True."""
-        logger.info("Starting the Valheim server")
+        message = cls.format_world_info(world_records.values()) if len(world_records) > 0 else "No worlds currently exist."
+        logger.info(message)
+        return {"content": message}
 
-        if self.server_proc is not None:
-            logger.warning("Start server requested but the server is running")
-            return False
+    @staticmethod
+    def format_world_info(worlds: List):
+        def _formatter(data: Dict):
+            return (f"World: [{data['worldName']}] "
+                    f"Server name: [{data['serverName']}] "
+                    f"Password: [{data['serverPassword']}] "
+                    f"Status: [{data['status']}] "
+                    f"Public IP: [{data['publicIp']}] ")
+        return "\n".join([_formatter(data) for data in worlds])
 
-        self.server_proc = subprocess.Popen(self.server_script)
-        return True
 
-    def stop_server(self) -> bool:
-        """Attempts to stop the Valheim server. Sets `server_proc` to None.
-        Will fail and return false if a server is not running, otherwise
-        returns True."""
-        logger.info("Stopping the Valheim server")
+class StartServer(SigrunCommand):
 
-        if self.server_proc is None:
-            logger.warning("Stop server requested but server is not running")
-            return False
+    name = "start-server"
+    world_name_option = "world-name"
+    server_name_option = "server-name"
+    server_pass_option = "server-password"
 
-        self.server_proc = None
-        return True
+    @classmethod
+    def get_description(cls):
+        return "Start Valheim server SERVER_NAME. The world will be created if it doesn't exist."
 
-    def update_server(self) -> bool:
-        """Attmpts to update the Valheim server. Will fail and return False
-        if the server is running, otherwise returns True."""
-        logger.info("Updating the valheim server")
+    @classmethod
+    def get_metadata(cls):
+        return {
+            "name": cls.name,
+            "description": cls.get_description(),
+            "options": [
+                {
+                    "type": STRING_OPTION_TYPE,
+                    "name": cls.world_name_option,
+                    "description": "The name of the world to start.",
+                    "required": True,
+                },
+                {
+                    "type": STRING_OPTION_TYPE,
+                    "name": cls.server_name_option,
+                    "description": "The name of the server. This name will show up in Valheim's server list. ",
+                    "required": True,
+                },
+                {
+                    "type": STRING_OPTION_TYPE,
+                    "name": cls.server_pass_option,
+                    "description": "The server password.",
+                    "required": True
+                }
+            ],
+            "default_permission": True,
+            "type": CHAT_INPUT_TYPE
+        }
 
-        if self.server_proc is not None:
-            logger.warning("Update server requested but the server is running")
-            return False
+    @classmethod
+    def handler(cls, options: list):
+        world = cls.get_option(cls.world_name_option, options)
+        server = cls.get_option(cls.server_name_option, options)
+        password = cls.get_option(cls.server_pass_option, options)
 
-        update_proc = subprocess.Popen(self.update_script)
-        update_proc.wait()
-        if update_proc.returncode:
-            logger.warning("Update server script failed")
-            return False
-        return True
+        if len(password) <= 3:
+            message = "Password must be longer than 3 characters to appease Odin."
+            logger.error(message) 
+            return {"content": message}
 
-    def get_credentials(self):
-        if "BOT_TOKEN" not in os.environ:
-            raise RuntimeError(
-                "Please complete and source your environment file.")
-        elif "APPLICATION_ID" not in os.environ:
-            raise RuntimeError(
-                "Please complete and source your environment file.")
-        elif "GUILD_ID" not in os.environ:
-            raise RuntimeError(
-                "Please complete and source your environment file.")
-        return {"bot_token": os.environ["BOT_TOKEN"],
-                "application_id": os.environ["APPLICATION_ID"],
-                "guild_id": os.environ["GUILD_ID"]}
+        vpc_id = cls.get_vpc()
+        subnet_id = cls.get_subnet_id(vpc_id)
+        security_group_ids = cls.get_security_group_ids(vpc_id)
 
-    def run(self):
-        """This is the main event loop. Sigrun starts the underlying Valheim
-        server and then adds a coordinating task to the async event loop
-        and runs it. The coordinating task orders the discord connection
-        and the message handling loop.
-        """
-        self.start_server()
-
-        async def _run():
-            discord_connection = await DiscordConnection.create(
-                self.loop,
-                self.credentials["application_id"],
-                self.credentials["guild_id"],
-                self.credentials["bot_token"],
-            )
-            atexit.register(discord_connection.disconnect)
-
-            try:
-                await asyncio.wait_for(discord_connection.connect(),
-                                       timeout=60)
-            except asyncio.TimeoutError:
-                self.loop.stop()
-                raise RuntimeError("Failed to initiate connect to discord")
-
-            # for command in self.commands:
-            #     await discord_connection.post_command(**command)
-
-            # self.loop.create_task(self.update_presence(discord_connection))
-
-            # TODO: Consider splitting this such that gets or handles can fail
-            while discord_connection.is_open:
-                try:
-                    message = await discord_connection.get_interaction()
-                except DiscordConnectionException as e:
-                    logger.exception(f"Encountered a connection error {e}")
-                    continue
-                if message is not None:
-                    command_name = message.d["data"]["name"]
-                    await self.async_handle_command(command_name,
-                                                    discord_connection,
-                                                    message.d)
-
-        self.loop.create_task(_run())
-
-        try:
-            # TODO: I think this can be something different
-            self.loop.run_forever()
-        except KeyboardInterrupt:
-            self.log_and_stop("KeyboardInterrupt")
-
-    # def get_registered_commands(self):
-    #     async def _list():
-    #         discord_connection = await DiscordConnection.create(
-    #             self.loop,
-    #             self.credentials["application_id"],
-    #             self.credentials["guild_id"],
-    #             self.credentials["bot_token"],
-    #         )
-    #         commands = await discord_connection.get_commands()
-    #         await discord_connection.disconnect()
-    #         return commands
-    #     return asyncio.run(_list())
-
-    # def register_commands(self, commands):
-    #     async def _register():
-    #         discord_connection = await DiscordConnection.create(
-    #             self.loop,
-    #             self.credentials["application_id"],
-    #             self.credentials["guild_id"],
-    #             self.credentials["bot_token"],
-    #         )
-    #         for command in commands:
-    #             await discord_connection.post_command(**command)
-    #         await discord_connection.disconnect()
-    #     return asyncio.run(_register())
-
-    # def delete_command(self, name):
-    #     async def _delete():
-    #         discord_connection = await DiscordConnection.create(
-    #             self.loop,
-    #             self.credentials["application_id"],
-    #             self.credentials["guild_id"],
-    #             self.credentials["bot_token"],
-    #         )
-    #         success = await discord_connection.delete_command(name)
-    #         await discord_connection.disconnect()
-    #         return success
-    #     return asyncio.run(_delete())
-
-    def log_and_stop(self, signame):
-        logger.info(f"Received {signame}. Cleaning up")
-        self.stop_server()
-        self.loop.stop()
-        # What about the websocket?
-
-    def exception_handler(self, loop, context):
-        """We don't stop the bot or the server on an exception,
-        so you can continue to play even if the Sigrun fails to function."""
-        # TODO: Getting the full traceback is pain :(
-        exception = context.get("exception")
-        logger.error(f"Encountered unexpected error {str(exception)}")
-
-    @property
-    def commands(self):
-        return [
-            {
-                "name": "server-status",
-                "description": "Get the Valheim server's status and "
-                               "hardware statistics."
+        task = cls.ecs_client.run_task(
+            cluster="GameServerCluster",
+            count=1,
+            launchType="FARGATE",
+            networkConfiguration={
+                "awsvpcConfiguration": {
+                    "subnets": [subnet_id],
+                    "securityGroups": security_group_ids,
+                    "assignPublicIp": "ENABLED"
+                }
             },
-            {
-                "name": "server-update",
-                "description": "Bring the Valheim server down, update it, "
-                               "and bring it back up."
+            overrides={
+                "containerOverrides": [
+                    {
+                        "name": "ValheimContainer",
+                        "environment": [
+                            {
+                                "name": "VALHEIM_SERVER_NAME",
+                                "value": server
+                            },
+                            {
+                                "name": "VALHEIM_SERVER_PASSWORD",
+                                "value": password
+                            },
+                            {
+                                "name": "VALHEIM_WORLD_NAME",
+                                "value": world
+                            }
+                        ]
+                    }
+                ]
             },
-            {
-                "name": "server-down",
-                "description": "Shut the Valheim server down."
-            },
-            {
-                "name": "server-up",
-                "description": "Start the Valheim server up."
+            tags=[
+                {
+                    "key": "sigrun-game",
+                    "value": "valheim"
+                },
+                {
+                    "key": "sigrun-world",
+                    "value": world
+                },
+                {
+                    "key": "sigrun-server-name",
+                    "value": server
+                },
+                {
+                    "key": "sigrun-server-password",
+                    "value": password
+                }
+            ],
+            taskDefinition="Valheim")
+        if task["ResponseMetadata"]["HTTPStatusCode"] != 200:
+            message = "Failed to initiate Fargate task."
+            logger.error(message)
+            return {"content": message}
+
+        table = cls.ddb_resource.Table(DYNAMO_DB_TABLE)
+
+        world_record = table.get_item(
+            Key={
+                "game": "Valheim",
+                "worldName": world
             }
-        ]
+        )
+        if world_record["ResponseMetadata"]['HTTPStatusCode'] != 200:
+            message = "Fargate task initiated, but failed to record in DynamoDb"
+            logger.error(message)
+            return {"content": message}
 
-    async def async_handle_command(self, command, conn, data):
-        """A coroutine that handles an interaction synchronously.
-        TODO: The right way to ack an interaction is to post a specific
-        response payload, not a message :(
-        """
-        message = self.task_handlers[command](data)
-        if message is not None:
-            await conn.post_message(data['channel_id'], content=message)
+        if "Item" in world_record:
+            table.update_item(
+                Key={
+                    "game": "Valheim",
+                    "worldName": world
+                },
+                AttributeUpdates={
+                    "lastStarted": {
+                        "Value": str(date.today()),
+                        "Action": "PUT"
+                    },
+                    "serverName": {
+                        "Value": server,
+                        "Action": "PUT"
+                    },
+                    "serverPassword": {
+                        "Value": password,
+                        "Action": "PUT"
+                    },
+                    "status": {
+                        "Value": "INITIATED",
+                        "Action": "PUT"
+                    },
+                    "uptimeStart": {
+                        "Value": Decimal(time.time()),
+                        "Action": "PUT"
+                    },
+                    "totalSessions": {
+                        "Value": 1,
+                        "Action": "ADD"
+                    }
+                })
 
-    def handle_server_status(self, data):
-        logger.info("Handling server-status interaction")
-
-        if not self.lock.acquire(blocking=False):
-            return self.lock_message
-
-        if self.server_proc is None:
-            return "The server is not currently running."
-
-        psutil_proc = psutil.Process(self.server_proc.pid)
-
-        uptime = datetime.datetime.now() - datetime.datetime.fromtimestamp(
-            psutil_proc.create_time())
-        mem_usage = psutil_proc.memory_info().rss / 1.e9  # report in Gb
-        cpu_utilization = psutil_proc.cpu_percent()
-
-        return ("The server is running! Here are some stats :wink: \n"
-                f"Uptime: {uptime} [hours:minutes:days]\n"
-                f"Memory usage: {mem_usage} [Gb]\n"
-                f"CPU Utilization: {cpu_utilization:.4f} %")
-
-    def handle_server_update(self, data):
-        logger.info("Handling server-update interaction")
-
-        if not self.lock.acquire(blocking=False):
-            return self.lock_message
-
-        if not self.stop_server():
-            self.lock.release()
-            return "I failed to stop the server: disappointed:"
-
-        if not self.update_server():
-            self.lock.release()
-            return ("I stopped the server, but I couldn't update "
-                    "it :disappointed:")
-
-        if not self.start_server():
-            self.lock.release()
-            return ("I stopped and updated the server! But I failed "
-                    "to start it again :disappointed:")
-
-        self.lock.release()
-        return "The server has been updated!"
-
-    def handle_server_down(self, data):
-        logger.info("Handling server-down interaction")
-
-        if not self.lock.acquire(blocking=False):
-            return self.lock_message
-
-        if not self.stop_server():
-            message = "I failed to stop the server :disappointed:"
+            message = f"Starting up existing world {world}. Server name: {server}. Password: {password}."
         else:
-            message = "The server has been stopped!"
+            table.put_item(
+                Item={
+                    "game": "Valheim",
+                    "worldName": world,
+                    "serverName": server,
+                    "serverPassword": password,
+                    "status": "INITIATED",
+                    "creationTime": str(date.today()),
+                    "totalUptime": 0,
+                    "totalSessions": 0,
+                    "uptimeStart": Decimal(time.time()),
+                    "lastStarted": str(date.today())
+                })
+            message = f"Creating a new world named {world}. Server name: {server}. Password: {password}."
 
-        self.lock.release()
-        return message
+        logger.info(message)
+        return {"content": message}
 
-    def handle_server_up(self, data):
-        logger.info("Handling server-up interaction")
 
-        if not self.lock.acquire(blocking=False):
-            return self.lock_message
+class StopServer(SigrunCommand):
 
-        if not self.start_server():
-            message = "I failed to start the server :disappointed:"
-        else:
-            message = "The server has been started!"
+    name = "stop-server"
+    world_name_option = "world-name"
 
-        self.lock.release()
-        return message
+    @classmethod
+    def get_description(cls):
+        return "Stop the server running the Valheim world WORLD_NAME."
 
-    async def update_presence(self, conn):
-        """A coroutine that updates Sigrun's presence every 12 hours"""
-        presences = [("Valheim", DiscordActivityType.PLAYING)]
-        index = 0
-        while True:
-            name, type = presences[index]
-            await conn.update_presence(name, type)
-            await asyncio.sleep(60 * 60 * 12)
-            index = (index + 1) % len(presences)
+    @classmethod
+    def get_metadata(cls):
+        return {
+            "name": cls.name,
+            "description": cls.get_description(),
+            "options": [{
+                "type": STRING_OPTION_TYPE,
+                "name": cls.world_name_option,
+                "description": "The name of the world to stop. Check world-status to see what is currently up.",
+                "required": True,
+            }],
+            "default_permission": True,
+            "type": CHAT_INPUT_TYPE
+        }
+
+    @classmethod
+    def handler(cls, options: list):
+        world = cls.get_option(cls.world_name_option, options)
+
+        ecs_client = boto3.client("ecs")
+
+        task_descriptions = cls.get_tasks()
+
+        task_to_stop = None
+        for task in task_descriptions:
+            for tag in task["tags"]:
+                if tag["key"] == "sigrun-world" and tag["value"] == world:
+                    task_to_stop = task
+
+        if task_to_stop is None:
+            message = f"No running world named {world} found."
+            logger.info(message)
+            return {"content": message}
+
+        stopped_task = ecs_client.stop_task(cluster="GameServerCluster", task=task_to_stop["taskArn"], reason="Sigrun request.")
+        if stopped_task["ResponseMetadata"]["HTTPStatusCode"] != 200:
+            message = "Failed to stop Fargate task."
+            logger.error(message)
+            return {"content": message}
+
+        table = cls.ddb_resource.Table(DYNAMO_DB_TABLE)
+
+        world_record = table.get_item(
+            Key={
+                "game": "Valheim",
+                "worldName": world
+            }
+        )
+        if world_record["ResponseMetadata"]['HTTPStatusCode'] != 200:
+            message = "Fargate task stopped, but failed to update DynamoDB record."
+            logger.error(message)
+            return {"content": message}
+
+        if "Item" not in world_record:
+            message = "Failed to get DynamoDB record for an existing world. Most unexpected!"
+            logger.error(message)
+            return {"content": message}
+
+        table.update_item(
+            Key={
+                "game": "Valheim",
+                "worldName": world
+            },
+            AttributeUpdates={
+                "totalUptime": {
+                    "Value": Decimal(time.time()) - world_record['Item']["uptimeStart"],
+                    "Action": "ADD"
+                },
+                "serverName": {
+                    "Value": None,
+                    "Action": "PUT"
+                },
+                "serverPassword": {
+                    "Value": None,
+                    "Action": "PUT"
+                },
+                "status": {
+                    "Value": "STOPPED",
+                    "Action": "PUT"
+                }
+            }
+        )
+
+        message = f"Stopped world {world}."
+        logger.info(message)
+        return {"content": message}
+
+
+class RiseAndGrind(SigrunCommand):
+
+    name = "rise-and-grind"
+    world_name_option = "world-name"
+    server_name_option = "server-name"
+    server_pass_option = "server-password"
+
+    @classmethod
+    def get_description(cls):
+        return "A synonym of start-server..."
+
+    @classmethod
+    def get_metadata(cls):
+        return {
+            "name": cls.name,
+            "description": cls.get_description(),
+            "options": [
+                {
+                    "type": STRING_OPTION_TYPE,
+                    "name": cls.world_name_option,
+                    "description": "The name of the world to start.",
+                    "required": True,
+                },
+                {
+                    "type": STRING_OPTION_TYPE,
+                    "name": cls.server_name_option,
+                    "description": "The name of the server. This name will show up in Valheim's server list. ",
+                    "required": True,
+                },
+                {
+                    "type": STRING_OPTION_TYPE,
+                    "name": cls.server_pass_option,
+                    "description": "The server password.",
+                    "required": True
+                }
+            ],
+            "default_permission": True,
+            "type": CHAT_INPUT_TYPE
+        }
+
+    @classmethod
+    def handler(cls, options: List):
+        return StartServer.handler(options)

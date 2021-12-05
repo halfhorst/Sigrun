@@ -1,0 +1,34 @@
+FROM ubuntu:20.04
+
+RUN apt-get update && apt-get -y upgrade
+
+ENV VALHEIM_DEDICATED_SERVER_DIR="/valheim"
+ENV VALHEIM_DEDICATED_SERVER_APP_ID=896660
+ENV STEAMCMD="/usr/games/steamcmd"
+
+RUN echo steam steam/question select "I AGREE" | debconf-set-selections && \
+    echo steam steam/license note '' | debconf-set-selections && \
+    dpkg --add-architecture i386 && \
+    apt-get -q -y update && \
+    # is this necessary?
+    DEBIAN_FRONTEND=noninteractive apt-get install -q -y --no-install-recommends \
+      lib32gcc1 steamcmd ca-certificates gosu
+
+RUN addgroup --gid 1000 steam && \
+    adduser --system --home /home/steam --shell /bin/false --uid 1000 --gid 1000 steam
+
+# setup a separate root tree for save data. this will be mounted eventually
+RUN mkdir -p ${VALHEIM_DEDICATED_SERVER_DIR} \
+    && chown -R steam:steam ${VALHEIM_DEDICATED_SERVER_DIR}
+
+RUN ${STEAMCMD} +force_install_dir ${VALHEIM_DEDICATED_SERVER_DIR} \
+                +login anonymous \
+                +app_update ${VALHEIM_DEDICATED_SERVER_APP_ID} \
+                +quit
+
+COPY run_server.sh ${VALHEIM_DEDICATED_SERVER_DIR}
+RUN chmod +x ${VALHEIM_DEDICATED_SERVER_DIR}/run_server.sh
+
+EXPOSE 2456-2457/tcp
+
+ENTRYPOINT exec ${VALHEIM_DEDICATED_SERVER_DIR}/run_server.sh
