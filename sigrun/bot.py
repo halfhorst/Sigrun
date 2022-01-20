@@ -216,10 +216,22 @@ class StartServer(SigrunCommand):
         subnet_id = cls.get_subnet_id(vpc_id)
         security_group_ids = cls.get_security_group_ids(vpc_id)
 
+        tasks = cls.get_tasks()
+        for task in tasks:
+            tags = {tag["key"]: tag["value"] for tag in task["tags"]}
+            if tags["sigrun-world"] == world:
+                message = f"The world {world} is already up and running! be patient."
+                logger.warning(message)
+                return {"content": message}
+
         task = cls.ecs_client.run_task(
             cluster="GameServerCluster",
             count=1,
-            launchType="FARGATE",
+            # launchType="FARGATE",
+            capacityProviderStrategy=[{
+                "capacityProvider": "FARGATE_SPOT",
+                "weight": 1
+            }],
             networkConfiguration={
                 "awsvpcConfiguration": {
                     "subnets": [subnet_id],

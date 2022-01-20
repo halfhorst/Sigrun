@@ -48,8 +48,8 @@ class GameServerConstruct(cdk.Construct):
 
         valheim_task = ecs.FargateTaskDefinition(self, 
                                                  "ValheimTask", 
-                                                 cpu= 2048, 
-                                                 memory_limit_mib=4096,
+                                                 cpu= 1024,
+                                                 memory_limit_mib=3072,
                                                  volumes=[server_volume],
                                                  family="Valheim")
 
