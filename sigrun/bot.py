@@ -226,12 +226,8 @@ class StartServer(SigrunCommand):
 
         task = cls.ecs_client.run_task(
             cluster="GameServerCluster",
+            launchType="FARGATE",
             count=1,
-            # launchType="FARGATE",
-            capacityProviderStrategy=[{
-                "capacityProvider": "FARGATE_SPOT",
-                "weight": 1
-            }],
             networkConfiguration={
                 "awsvpcConfiguration": {
                     "subnets": [subnet_id],

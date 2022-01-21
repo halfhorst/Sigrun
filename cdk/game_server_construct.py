@@ -34,8 +34,11 @@ class GameServerConstruct(cdk.Construct):
                                      task_definition=valheim_task,
                                      desired_count=0,
                                      platform_version=ecs.FargatePlatformVersion.VERSION1_4,
-                                     service_name="GameServerFargateService",
-                                     security_groups=[service_security_group])
+                                     security_groups=[service_security_group],
+                                     capacity_provider_strategies=[
+                                        ecs.CapacityProviderStrategy(capacity_provider="FARGATE_SPOT", weight=2),
+                                        ecs.CapacityProviderStrategy(capacity_provider="FARGATE", weight=1)
+                                     ])
 
         file_system.connections.allow_default_port_from(service)
         self.allow_valheim_connections(service)
