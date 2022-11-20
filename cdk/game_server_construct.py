@@ -1,19 +1,18 @@
-from aws_cdk import (
-    core as cdk,
-    aws_ec2 as ec2,
-    aws_ecs as ecs,
-    aws_ecr_assets as ecr_assets,
-    aws_logs as logs
-)
+from constructs import Construct
+from aws_cdk import aws_ec2 as ec2
+from aws_cdk import aws_ecs as ecs
+from aws_cdk import aws_ecr_assets as ecr_assets
+from aws_cdk import aws_logs as logs
 
 from pathlib import Path
 
 DATA_MOUNT_ROOT = "/server_data"
 VALHEIM_GAME_PORT = 2456
 
-class GameServerConstruct(cdk.Construct):
 
-    def __init__(self, scope: cdk.Construct, construct_id: str, vpc, file_system, **kwargs) -> None:
+class GameServerConstruct(Construct):
+
+    def __init__(self, scope: Construct, construct_id: str, vpc, file_system, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         cluster = ecs.Cluster(self, "GameServerCluster", vpc=vpc, cluster_name="GameServerCluster")
@@ -70,7 +69,7 @@ class GameServerConstruct(cdk.Construct):
         return valheim_task
 
     def allow_valheim_connections(self, service: ecs.FargateService) -> None: 
-        service.connections.allow_from_any_ipv4(ec2.Port(protocol=ecs.Protocol.UDP, 
+        service.connections.allow_from_any_ipv4(ec2.Port(protocol=ec2.Protocol.UDP, 
                                                          from_port=VALHEIM_GAME_PORT,
                                                          to_port=VALHEIM_GAME_PORT + 1,  # Steam query port
                                                          string_representation="valheimUdpPorts"))

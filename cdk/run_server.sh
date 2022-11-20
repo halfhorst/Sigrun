@@ -21,4 +21,9 @@ mkdir -p ${DATA_MOUNT_ROOT}/valheim
                         -savedir ${DATA_MOUNT_ROOT}/valheim \
                         -public 1
 
+# run server in background using job system
+# then monitor here and kill?
+# try crontab to run periodically?
+# https://stackoverflow.com/questions/360201/how-do-i-kill-background-processes-jobs-when-my-shell-script-exits
+
 export LD_LIBRARY_PATH=$templdpath

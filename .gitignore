@@ -103,7 +103,7 @@ celerybeat.pid
 
 # Environments
 .env
-.venv
+.venv*/
 env/
 venv/
 ENV/
@@ -133,3 +133,6 @@ dmypy.json
 cdk.out/
 *.zip
 *.env
+.pylintrc
+
+.idea/

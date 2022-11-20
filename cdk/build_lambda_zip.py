@@ -1,15 +1,16 @@
 import zipfile
 
-from pathlib import Path
-
 import loguru
+
+from pathlib import Path
 from loguru import logger
 
 
 def main():
     site_packages = Path(loguru.__file__).resolve().parents[1]
     package_root = Path(__file__).resolve().parents[1]
-    handler_source = package_root / "lambda" / "handler.py"
+    discord_handler_source = package_root / "lambda" / "discord.py"
+    sqs_handler_source = package_root / "lambda" / "sqs.py"
     sigrun_source = package_root / "sigrun"
     zipf = zipfile.ZipFile(package_root / "sigrun.zip", mode="w")
 
@@ -27,7 +28,8 @@ def main():
         if path.is_file():
             zipf.write(path, arcname=path.relative_to(package_root))
 
-    zipf.write(handler_source, arcname="handler.py")
+    zipf.write(discord_handler_source, arcname="discord.py")
+    zipf.write(sqs_handler_source, arcname="sqs.py")
 
     zipf.close()
     logger.info(f"Created zip archive at {zipfile.Path(zipf)}")

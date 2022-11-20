@@ -68,28 +68,29 @@ A clear enhancement of this setup is to start a sidecar container that monitors 
 
 Note: this ascii chart needs to be updated to include DynamoDb.
 ```
-                                           Sigrun         World
-                                         ┌─Stack ─┐     ┌─Server──────────────────┐
-                                         │        │     │ Stack                   │
-                    ┌───────┐          ┌─┴────────┴─────┴─────────────────────────┴───┐
-                    │       │          │                                              │
-                    │       │          │  ┌────────┐    ┌─────────────┐ ┌───────────┐ │
-                    │       │          │  │        │    │ ECS/Fargate │ │Elastic    │ │
-                    │   D   ├──────────┼──►API     │    │             │ │File       │ │
-                    │       │ Call     │  │Gateway │    │ ┌─────────┐ │ │System     │ │
-                    │   I   │ Endpoint │  └──────┬─┘    │ │Valheim  │ │ │           │ │
-┌─────────┐         │       │ Based    │         │    ┌─┼─►Server   │ │ ├───────────┤ │
-│         │Slash Cmd│   S   │ Bot      │   ANY / │    │ │ │Task     │===│ Persistent│ │
-│         ├─────────►       │          │         │    │ │ └─▲───────┘ │ │ Game Data │ │
-│         │         │   C   │          │  ┌──────▼┐   │ │   │Monitor  │ └───────────┘ │
-│ Discord ◄─────────┤       │          │  │Lambda ├───┘ │   │& Kill   │               │
-│ User    │ Response│   O   │          │  │Discord│Init │ ┌─┴───────┐ │               │
-└─────────┘         │       │          │  │Bot    ├───┐ │ │Watchdog │ │               │
-                    │   R   │          │  └───────┘   └─┼─►Task     │ │               │
-                    │       │          │                │ │         │ │               │
-                    │   D   │          │                │ └─────────┘ │               │
-                    │       │          │                │             │               │
-                    │       │          │                └─────────────┘               │
-                    │       │          │                                              │
-                    └───────┘          └──────────────────────────────────────────────┘
+                                               Sigrun
+                                             ┌─Stack ─┐                    ┌─World─Server─Stack────────┐
+                                             │        │                    │                           │
+                       ┌───────┐          ┌──┴────────┴────────────────────┴───────────────────────────┴─┐
+                       │       │ Endpoint │                                                              │
+                       │       │ Based    │  ┌─API────┐                    ┌─────────────┐ ┌───────────┐ │
+                       │       │ Bot      │  │ Gateway│                    │ ECS/Fargate │ │Elastic    │ │
+                       │   D   └──────────┼──►        │                    │             │ │File       │ │
+                       │       ◄──────────┼──┐        │   server-status    │ ┌─Valheim─┐ │ │System     │ │
+                       │   I   │          │  └─────▲┌─┘ ┌─stop-server──────┴─► Server  │ │ │           │ │
+   ┌─Discord─┐         │       │          │        ││   │                    │ Task    │ │ ├───────────┤ │
+   │ User    │Slash Cmd│   S   │          │  ANY / ││   │             ┌────┬─►         │===│ Persistent│ │
+   │         ├─────────►       │          │        ││   │             │    │ └─▲───────┘ │ │ Game Data │ │
+   │         │         │   C   │          │  ┌─────┘▼─┐ │             │    │   │Monitor  │ └───────────┘ │
+   │         ◄─────────┤       │          │  │        ├─┘             │    │   │& Kill   │               │
+   │         │ Response│   O   │          │  Lambda   │   ┌────┐  ┌───┴──┐ │   │         │               │
+   └─────────┘         │       │          │  │        ├───► SQS├──►Lambda│ │ ┌─┴───────┐ │               │
+                       │   R   │          │  └───▲────┘   └────┘  └───┬──┘ │ │Watchdog │ │               │
+                       │       │          │      │                    │    │ │Task     │ │               │
+                       │   D   │          │      └────start-server────┘    │ └─────────┘ │               │
+                       │       │          │                                │             │               │
+                       │       │          │          async to meet         └─────────────┘               │
+                       │       │          │          Discord response                                    │
+                       │       │          │          deadline                                            │
+                       └───────┘          └──────────────────────────────────────────────────────────────┘
 ```
