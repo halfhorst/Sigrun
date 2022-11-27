@@ -6,12 +6,16 @@ import pprint
 from loguru import logger
 
 from sigrun.commands.factory import COMMANDS
+from sigrun.model.options import StartServerOptions, StopServerOptions
+from sigrun.commands.server_status import ServerStatus
+from sigrun.commands.stop_server import StopServer
+from sigrun.commands.start_server import StartServer
 
 APPLICATION_ID = os.getenv("APPLICATION_ID")
 GUILD_ID = os.getenv("GUILD_ID")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-if not (APPLICATION_ID and GUILD_ID and BOT_TOKEN):
-    raise RuntimeError("Missing a required environment variable.")
+# if not (APPLICATION_ID and GUILD_ID and BOT_TOKEN):
+#     raise RuntimeError("Missing a required environment variable.")
 
 BASE_URL = "https://discord.com/api/v10"
 COMMANDS_URL = f"{BASE_URL}/applications/{APPLICATION_ID}/commands"
@@ -64,42 +68,50 @@ def delete(command_id: str):
 def update_valheim_image():
     raise NotImplementedError("TODO..")
 
+
 # ################################
 # # Bot Command CLI Interface
 # ################################
-#
-# @sigrun.command(help=COMMANDS.get("server-status").get_description())
-# def server_status():
-#     COMMANDS.get("server-status").handler([])
-#
-# @sigrun.command(help=COMMANDS.get("start-server").get_description())
-# @click.argument('world_name')
-# @click.argument('server_name')
-# @click.argument('server_password')
-# def start_server(world_name: str, server_name: str, server_password: str):
-#     command = COMMANDS.get("start-server")
-#     command.handler([
-#         {
-#             "name": command.world_name_option,
-#             "value": world_name
-#         },
-#         {
-#             "name": command.server_name_option,
-#             "value": server_name
-#         },
-#         {
-#             "name": command.server_pass_option,
-#             "value": server_password
-#         }
-#     ])
-#
-# @sigrun.command(help=COMMANDS.get("stop-server").get_description())
-# @click.argument('world_name')
-# def stop_server(world_name: str):
-#     command = COMMANDS.get("stop-server")
-#     command.handler([
-#         {
-#             "name": command.world_name_option,
-#             "value": world_name
-#         }
-#     ])
+
+@sigrun.command(help=ServerStatus.get_cli_description())
+def server_status():
+    command = ServerStatus({})
+    logger.info(command.handler())
+    if command.is_deferred():
+        logger.info(command.deferred_handler())
+
+
+@sigrun.command(help=StartServer.get_cli_description())
+@click.argument('server_name')
+@click.argument('server_password')
+def start_server(server_name: str, server_password: str):
+    options = [
+        {
+            "name": StartServerOptions.server_name.name,
+            "value": server_name
+        },
+        {
+            "name": StartServerOptions.server_password.name,
+            "value": server_password
+        }
+    ]
+    command = StartServer(options)
+    logger.info(command.handler())
+    if command.is_deferred():
+        logger.info(command.deferred_handler())
+
+
+@sigrun.command(help=StopServer.get_cli_description())
+@click.argument('server_name')
+def stop_server(server_name: str):
+    options = [
+        {
+            "name": StopServerOptions.server_name.name,
+            "value": server_name
+        }
+    ]
+    command = StopServer(options)
+    logger.info(command.handler())
+    if command.is_deferred():
+        logger.info(command.deferred_handler())
+

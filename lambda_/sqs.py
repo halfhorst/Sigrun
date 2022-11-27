@@ -1,12 +1,9 @@
 import json
-from typing import Dict
 
 import httpx
 from aws_lambda_typing import events
-from loguru import logger
 
-from sigrun.commands import factory
-from sigrun.commands.base import BaseCommand
+from sigrun.commands.deferred_command import DeferredCommandInput
 
 
 # SQS event shape
@@ -17,44 +14,15 @@ def main(event: events.SQSEvent, context):
     """
     # de-duplicate?
     for command_input in [parse_record(record) for record in event.Records]:
-        response = command_input.command.deferred_handler(command_input.options,
-                                                          command_input.interaction_token)
+        response = command_input.command.deferred_handler()
         send_followup(response, command_input.application_id, command_input.interaction_token)
 
 
-class DeferredCommandInput:
-    command: BaseCommand
-    options: Dict
-    application_id: str
-    interaction_token: str
-
-    def __init__(self, command, options: Dict, application_id: str, interaction_token: str):
-        self.command = command
-        self.options = options
-        self.application_id = application_id
-        self.interaction_token = interaction_token
-
-    @staticmethod
-    def from_dict(body: Dict):
-        try:
-            command_name = body.get("command")
-            options = body.get("options")
-            application_id = body.get("application_id")
-            interaction_token = body.get("interaction_token")
-        except KeyError:
-            logger.error(f"Received an improperly formatted event body: {input}.")
-        command = factory.get_command(command_name)
-        return DeferredCommandInput(command, options, application_id, interaction_token)
-
-    def to_json(self) -> dict:
-        return json.dumps(self.__dict__)
-
-
 def parse_record(record: events.sqs.SQSMessage) -> DeferredCommandInput:
-    parsed_boyd = json.loads(record['body'])
-    return DeferredCommandInput.from_dict(parsed_boyd)
+    parsed_body = json.loads(record['body'])
+    return DeferredCommandInput.from_dict(parsed_body)
 
 
-def send_followup(content: dict, application_id: str, interaction_token: str):
+def send_followup(content: str, application_id: str, interaction_token: str):
     url = f"https://discord.com/api/v10/webhooks/{application_id}/{interaction_token}"
     httpx.post(url, data={'content': content})

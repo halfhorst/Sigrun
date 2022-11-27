@@ -4,7 +4,7 @@ STRING_OPTION_TYPE = 3
 
 
 class DiscordOption:
-    # The option name as shown to user
+    # The option name as shown to the user
     name: str
 
     # The option's value
@@ -12,9 +12,6 @@ class DiscordOption:
 
     def __init__(self, name: str):
         self.name = name
-
-    def get(self):
-        return self.value
 
 
 class StartServerOptions:
@@ -45,26 +42,28 @@ class StartServerOptions:
         ]
 
     @staticmethod
-    def from_dict(d: dict):
-        return StartServerOptions(d[StartServerOptions.server_name.name],
-                                  d[StartServerOptions.server_password.name])
+    def from_dict(options: List[dict]):
+        options = {option['name']: option['value'] for option in options}
+        return StartServerOptions(options[StartServerOptions.server_name.name],
+                                  options[StartServerOptions.server_password.name])
 
 
 class StopServerOptions:
     server_name = DiscordOption('server-name')
 
     def __init__(self, name: str):
-        self.server_name = name
+        self.server_name.value = name
 
     @staticmethod
     def get_discord_metadata() -> List[Dict]:
         return [{
-                "type": STRING_OPTION_TYPE,
-                "name": StopServerOptions.server_name.name,
-                "description": "The name of the world to stop. Check world-status to see what is currently up.",
-                "required": True,
-            }]
+            "type": STRING_OPTION_TYPE,
+            "name": StopServerOptions.server_name.name,
+            "description": "The name of the world to stop. Check world-status to see what is currently up.",
+            "required": True,
+        }]
 
     @staticmethod
-    def from_dict(d: dict):
-        return StopServerOptions(d[StopServerOptions.server_name.name])
+    def from_dict(options: List[dict]):
+        options = {option['name']: option['value'] for option in options}
+        return StopServerOptions(options[StopServerOptions.server_name.name])

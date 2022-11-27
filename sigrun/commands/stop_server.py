@@ -1,11 +1,11 @@
 import time
 from decimal import Decimal
+from typing import List
 
 from loguru import logger
 
 from sigrun.cloud.util import CloudUtility
 from sigrun.commands.base import BaseCommand
-from sigrun.model.container import ContainerTag
 from sigrun.model.game import VALHEIM
 from sigrun.model.options import StopServerOptions
 
@@ -14,41 +14,48 @@ CHAT_INPUT_TYPE = 1
 
 class StopServer(BaseCommand):
     name = "stop-server"
-    world_name_option = "world-name"
+    options: StopServerOptions
 
-    def __init__(self, options: dict):
+    def __init__(self, options: List[dict]):
         self.options = StopServerOptions.from_dict(options)
         self.game = VALHEIM
+
+    @staticmethod
+    def get_cli_description():
+        return "Stop a game server."
 
     @staticmethod
     def get_discord_metadata():
         return {
             "type": CHAT_INPUT_TYPE,
             "name": "stop-server",
-            "description": "Stop a game server.",
+            "description": StopServer.get_cli_description(),
             "default_permission": True,
             "options": StopServerOptions.get_discord_metadata(),
         }
 
     def handler(self) -> str:
-        server_name = self.options.server_name.get()
-
+        server_name = self.options.server_name.value
         cloud_utility = CloudUtility(self.game)
-        tasks = cloud_utility.get_tasks()
+        table = cloud_utility.get_table_resource()
 
-        task_to_stop = None
-        for task in tasks:
-            tags = {tag["key"]: tag["value"] for tag in task["tags"]}
-            task_server = tags.get(ContainerTag.SERVER.tag, "")
-            if task_server == server_name:
-                task_to_stop = task
+        existing_item = table.get_item(Key={
+            "game": str(self.game),
+            "serverName": server_name
+        })
 
-        if task_to_stop is None:
+        if 'Item' not in existing_item:
             message = f"No running {self.game} server named {server_name} found."
             logger.info(message)
             return message
 
-        stopped_task = cloud_utility.stop_task(task_to_stop['taskArn'])
+        task_arn = existing_item['Item']['taskArn']
+        if task_arn == "":
+            message = f"No running {self.game} server named {server_name} found."
+            logger.info(message)
+            return message
+
+        stopped_task = cloud_utility.stop_task(task_arn)
         if stopped_task["ResponseMetadata"]["HTTPStatusCode"] != 200:
             message = "Failed to stop Fargate task!"
             logger.error(message)
@@ -88,10 +95,18 @@ class StopServer(BaseCommand):
                     "Value": None,
                     "Action": "PUT"
                 },
+                "taskArn": {
+                    "Value": "",
+                    "Action": "PUT"
+                },
                 "status": {
                     "Value": "STOPPED",
                     "Action": "PUT"
-                }
+                },
+                "publicIp": {
+                    "Value": "",
+                    "Action": "PUT"
+                },
             }
         )
 
@@ -102,5 +117,5 @@ class StopServer(BaseCommand):
     def is_deferred(self) -> bool:
         return False
 
-    def deferred_handler(self, discord_token: str) -> str:
+    def deferred_handler(self) -> str:
         pass

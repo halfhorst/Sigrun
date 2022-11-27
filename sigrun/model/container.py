@@ -2,7 +2,7 @@ from enum import Enum
 
 
 class ContainerTag(Enum):
-    GAME = 'sigrun-game.py'
+    GAME = 'sigrun-game'
     SERVER = 'sigrun-server-name'
     PASSWORD = 'sigrun-server-password'
 

@@ -7,11 +7,11 @@ from nacl.exceptions import BadSignatureError
 from nacl.signing import VerifyKey
 
 from sigrun.commands import factory
-from lambda_.sqs import DeferredCommandInput
+from sigrun.commands.deferred_command import DeferredCommandInput
 
 # TODO: Move this into a secret
 APPLICATION_PUBLIC_KEY = "13ec6cb5326e5b5fb0394d8744540a3a108daba4bd454b193f3950a0bd8e9a72"
-QUEUE_NAME = ""
+QUEUE_NAME = "SigrunMessageQueue"
 PING_TYPE = 1
 APPLICATION_COMMAND_TYPE = 4
 
@@ -50,7 +50,7 @@ def main(event: events.APIGatewayProxyEventV2, context):
     options = body["data"]["options"] if "options" in body["data"] else []
 
     command = factory.get_command(command_name, options)
-    response = command.handler(options)
+    response = command.handler()
 
     if command.is_deferred():
         enqueue(command, options, body['application_id'], body['token'])

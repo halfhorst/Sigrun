@@ -1,11 +1,11 @@
 import pprint
+from typing import List
 
 from boto3.dynamodb.conditions import Key
 from loguru import logger
 
 from sigrun.cloud.util import CloudUtility
 from sigrun.commands.base import BaseCommand
-from sigrun.model.container import ContainerTag
 from sigrun.model.game import VALHEIM
 
 CHAT_INPUT_TYPE = 1
@@ -14,15 +14,19 @@ CHAT_INPUT_TYPE = 1
 class ServerStatus(BaseCommand):
     name = "server-status"
 
-    def __init__(self):
+    def __init__(self, options: List[dict]):
         self.game = VALHEIM
+
+    @staticmethod
+    def get_cli_description():
+        return "List server status and details for all existing Valheim worlds."
 
     @staticmethod
     def get_discord_metadata() -> dict:
         return {
             "type": CHAT_INPUT_TYPE,
             "name": "server-status",
-            "description": "List server status and details for all existing Valheim worlds.",
+            "description": ServerStatus.get_cli_description(),
             "default_permission": True,
         }
 
@@ -39,29 +43,12 @@ class ServerStatus(BaseCommand):
         else:
             database_server_data = {record["serverName"]: record for record in database_server_data["Items"]}
 
-        tasks = cloud_utility.get_tasks()
-        for task in tasks:
-            tags = {tag["key"]: tag["value"] for tag in task["tags"]}
-            public_ip = ""
-            for attachment in task["attachments"]:
-                if attachment["type"] == "ElasticNetworkInterface":
-                    for detail in attachment["details"]:
-                        if detail["name"] == "networkInterfaceId":
-                            eni_id = detail["value"]
-                            public_ip = cloud_utility.get_public_ip(eni_id)
-            database_server_data[tags[ContainerTag.SERVER]].update({
-                'publicIp': public_ip,
-                'status': task['lastStatus']
-            })
-
-        return self.format_server_data(database_server_data)
-
-    @staticmethod
-    def format_server_data(data: dict) -> str:
-        return pprint.pformat(data)
+        for _, data in database_server_data.items():
+            data.pop("taskArn")
+        return pprint.pformat(database_server_data)
 
     def is_deferred(self) -> bool:
         return False
 
-    def deferred_handler(self, discord_token: str) -> str:
+    def deferred_handler(self) -> str:
         pass

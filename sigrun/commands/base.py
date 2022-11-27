@@ -13,6 +13,12 @@ class BaseCommand:
        execution."""
 
     @staticmethod
+    def get_cli_description():
+        """A description for the command line interface. You should probably use the same as
+        the one in the discord metadata."""
+        raise NotImplementedError
+
+    @staticmethod
     def get_discord_metadata():
         """Get command metadata for registering the command with Discord."""
         raise NotImplementedError
@@ -31,7 +37,7 @@ class BaseCommand:
         raise NotImplementedError
 
     @classmethod
-    def deferred_handler(cls, discord_token: str) -> str:
+    def deferred_handler(cls) -> str:
         """A followup method to run if the command is deferred"""
         raise NotImplementedError
 

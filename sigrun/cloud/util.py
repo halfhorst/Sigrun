@@ -7,7 +7,8 @@ from sigrun.model.game import Game
 
 class CloudUtility:
     ecs_client = boto3.client("ecs")
-    ec2_client = boto3.client('ec2')
+    ec2_client = boto3.client("ec2")
+    ec2_resource = boto3.resource("ec2")
     ddb_resource = boto3.resource('dynamodb')
 
     DYNAMO_DB_TABLE = "GameServerTable"
@@ -44,7 +45,7 @@ class CloudUtility:
             raise RuntimeError("Didn't find exactly two security groups. This is unexpected.")
 
         return [sg["GroupId"] for sg in security_groups["SecurityGroups"]]
-    
+
     def get_tasks(self) -> List:
         tasks = self.ecs_client.list_tasks(cluster="GameServerCluster")
         if tasks["ResponseMetadata"]["HTTPStatusCode"] != 200:
@@ -53,21 +54,23 @@ class CloudUtility:
         if len(tasks["taskArns"]) == 0:
             return []
 
-        task_descriptions = self.ecs_client.describe_tasks(cluster="GameServerCluster", 
-                                            tasks=tasks["taskArns"], include=["TAGS"] )
+        task_descriptions = self.ecs_client.describe_tasks(cluster="GameServerCluster",
+                                                           tasks=tasks["taskArns"], include=["TAGS"])
         if task_descriptions["ResponseMetadata"]["HTTPStatusCode"] != 200:
             raise RuntimeError("Failed to query for task descriptions.")
 
         return task_descriptions["tasks"]
 
+    def describe_task(self, task_arn: str) -> dict:
+        return self.ecs_client.describe_tasks(cluster="GameServerCluster", tasks=[task_arn])
+
     def get_public_ip(self, elastic_network_interface_id: str) -> str:
-        eni = boto3.resource('ec2').NetworkInterface(elastic_network_interface_id)
+        eni = self.ec2_resource.NetworkInterface(elastic_network_interface_id)
 
         return eni.association_attribute['PublicIp']
 
     def get_table_resource(self):
         return self.ddb_resource.Table(self.DYNAMO_DB_TABLE)
-
 
     def stop_task(self, task_arn: str):
         return self.ecs_client.stop_task(cluster="GameServerCluster", task=task_arn, reason="Sigrun request.")
