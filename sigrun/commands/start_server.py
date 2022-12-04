@@ -65,7 +65,9 @@ class StartServer(BaseCommand):
         table = cloud_utility.get_table_resource()
 
         if self.is_running(cloud_utility, self.game, server_name):
-            return f"Unable to start {self.game} server {server_name}."
+            message = f"The {self.game} server {server_name} has already been initiated!"
+            logger.warning(message)
+            return message
 
         task_metadata = self.launch_task(game, server_name, password, cloud_utility)
         http_status = task_metadata["ResponseMetadata"]["HTTPStatusCode"]
@@ -87,7 +89,7 @@ class StartServer(BaseCommand):
 
         if task_status == "RUNNING":
             ip_address = self.get_task_ip(task_arn, cloud_utility)
-            self.put_item_attribute(table, game, server_name, {"attribute": "PublicIp", "value": ip_address})
+            self.put_item_attribute(table, game, server_name, {"attribute": "publicIp", "value": ip_address})
             return (f"Your {game} server {server_name} is now up and running! "
                     f"The password is {password} and the IP address is {ip_address}.")
         return f"Your {game} server {server_name} could not be started, sorry :(."
@@ -95,7 +97,7 @@ class StartServer(BaseCommand):
     @staticmethod
     def validate_input(server_name: str, password: str) -> Tuple[bool, str]:
         if len(password) <= 5:
-            message = "Passwords must be longer than 3 characters."
+            message = "Passwords must be longer than 5 characters."
             logger.error(message)
             return True, message
 

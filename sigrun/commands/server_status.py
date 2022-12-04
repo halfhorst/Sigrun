@@ -45,7 +45,15 @@ class ServerStatus(BaseCommand):
 
         for _, data in database_server_data.items():
             data.pop("taskArn")
-        return pprint.pformat(database_server_data)
+        return self.format_server_data(database_server_data)
+
+    @staticmethod
+    def format_server_data(data: dict) -> str:
+        for k, v in data.items():
+            v['totalSessions'] = str(v['totalSessions'])
+            v['totalUptime'] = str(round(v['totalUptime'] / 3600, 2)) + " hours"
+            del v['uptimeStart']
+        return pprint.pformat(data)
 
     def is_deferred(self) -> bool:
         return False

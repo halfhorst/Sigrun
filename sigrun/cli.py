@@ -6,6 +6,7 @@ import pprint
 from loguru import logger
 
 from sigrun.commands.factory import COMMANDS
+from sigrun.commands import factory
 from sigrun.model.options import StartServerOptions, StopServerOptions
 from sigrun.commands.server_status import ServerStatus
 from sigrun.commands.stop_server import StopServer

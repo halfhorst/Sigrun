@@ -16,7 +16,7 @@ mkdir -p ${DATA_MOUNT_ROOT}/valheim
 ./valheim_server.x86_64 -batchmode -nographics \
                         -name ${VALHEIM_SERVER_NAME} \
                         -port ${VALHEIM_GAME_PORT} \
-                        -world ${VALHEIM_WORLD_NAME} \
+                        -world ${VALHEIM_SERVER_NAME} \
                         -password ${VALHEIM_SERVER_PASSWORD} \
                         -savedir ${DATA_MOUNT_ROOT}/valheim \
                         -public 1

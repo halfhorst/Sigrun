@@ -3,6 +3,7 @@ import json
 import httpx
 from aws_lambda_typing import events
 
+from sigrun.commands import factory
 from sigrun.commands.deferred_command import DeferredCommandInput
 
 
@@ -13,8 +14,9 @@ def main(event: events.SQSEvent, context):
     This is for longer-running activities.
     """
     # de-duplicate?
-    for command_input in [parse_record(record) for record in event.Records]:
-        response = command_input.command.deferred_handler()
+    for command_input in [parse_record(record) for record in event["Records"]]:
+        command = factory.get_command(command_input.command_name, command_input.options)
+        response = command.deferred_handler()
         send_followup(response, command_input.application_id, command_input.interaction_token)
 
 

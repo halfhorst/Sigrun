@@ -1,4 +1,6 @@
 import json
+import pprint
+from typing import List
 
 import boto3
 from aws_lambda_typing import events
@@ -50,22 +52,24 @@ def main(event: events.APIGatewayProxyEventV2, context):
     options = body["data"]["options"] if "options" in body["data"] else []
 
     command = factory.get_command(command_name, options)
+    logger.info("Command " + command_name)
+    logger.info("Options " + ",".join(pprint.pformat(options)))
     response = command.handler()
 
     if command.is_deferred():
-        enqueue(command, options, body['application_id'], body['token'])
+        enqueue(command.name, options, body['application_id'], body['token'])
 
     return build_response(200, {}, {"type": APPLICATION_COMMAND_TYPE, "data": {"content": response}})
 
 
-def enqueue(command, options, application_id, interaction_token):
-    queue_url = sqs_client.get_queue_url(QueueName=QUEUE_NAME)[QUEUE_NAME]
+def enqueue(command_name: str, options: List[dict], application_id, interaction_token):
+    queue_url = sqs_client.get_queue_url(QueueName=QUEUE_NAME)["QueueUrl"]
     if queue_url is None:
         logger.error("Failed to fine SQS queue to enqueue to.")
         return
 
-    deferred_command_input = DeferredCommandInput(command, options, application_id, interaction_token)
-    sqs_client.send_message(QueueUrl=queue_url, MessageBody=deferred_command_input.to_json(), )
+    deferred_command_input = DeferredCommandInput(command_name, options, application_id, interaction_token)
+    sqs_client.send_message(QueueUrl=queue_url, MessageBody=deferred_command_input.to_json())
 
 
 def validate_signature(signature: str, timestamp: str, body: str):

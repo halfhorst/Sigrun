@@ -9,8 +9,8 @@ from loguru import logger
 def main():
     site_packages = Path(loguru.__file__).resolve().parents[1]
     package_root = Path(__file__).resolve().parents[1]
-    discord_handler_source = package_root / "lambda" / "discord.py"
-    sqs_handler_source = package_root / "lambda" / "sqs.py"
+    discord_handler_source = package_root / "lambda_" / "discord.py"
+    sqs_handler_source = package_root / "lambda_" / "sqs.py"
     sigrun_source = package_root / "sigrun"
     zipf = zipfile.ZipFile(package_root / "sigrun.zip", mode="w")
 
@@ -21,10 +21,14 @@ def main():
     logger.info(f"Sigrun source code is located at {sigrun_source}.")
 
     for path in site_packages.rglob("*"):
+        # CDK is not needed for Lambda code and is so big it
+        # consumes the handler size quota
+        if str(path.relative_to(site_packages).parent).startswith("aws_cdk"):
+            continue
         if path.is_file():
             zipf.write(path, arcname=path.relative_to(site_packages))
 
-    for path in sigrun_source.glob("*"):
+    for path in sigrun_source.rglob("*"):
         if path.is_file():
             zipf.write(path, arcname=path.relative_to(package_root))
 
@@ -33,6 +37,7 @@ def main():
 
     zipf.close()
     logger.info(f"Created zip archive at {zipfile.Path(zipf)}")
+
 
 if __name__=="__main__":
     main()

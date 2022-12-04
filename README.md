@@ -2,11 +2,11 @@
 
 Sigrun is a Discord bot that helps you manage a Valheim server instance. It was motivated by money. Specifically, I didn't want to pay for an idle server I was maintaining for my friends. Sigrun is a 'personal' bot, not a public one you can add to your own guild. You need to create a Discord application yourself, for your own server, and run your own instance of the bot.
 
-**I consider this a personal project and develop it in that way. I may break it without warning or do other unruly things.**
+**This a personal project and I develop it like one. I may break it without warning or do other unruly things.**
 
 ## Getting Started
 
-### Pre-requisistes
+### Pre-requisites
 
 You need the aws cdk cli, you need python, and you need Docker. You also need an AWS account and a credential setup. The easiest way to do that is with the aws cli.
 
@@ -44,7 +44,7 @@ Use `sigrun --help` for command line documentation. The available commands are:
 `server-status`, `start-server`, and `stop-server` are the interactions available to the Discord application. They are identical to the CLI commands.
 
 ## TODO
-- Setup permissions in CDK
+- Figure out fargate permissions in CDK
 - monitor and report active connections.
 - move application id from lambda handler into a secret
 - implement the watchdog container for auto-shutdown.

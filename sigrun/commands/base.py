@@ -11,6 +11,7 @@ https://discord.com/developers/docs/interactions/receiving-and-responding#follow
 class BaseCommand:
     """The Sigrun command interface. It supports registerin commands with Discord and two-phase
        execution."""
+    name: str
 
     @staticmethod
     def get_cli_description():

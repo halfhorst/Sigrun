@@ -1,34 +1,40 @@
 import json
-
-from loguru import logger
+from typing import List
 
 from sigrun.commands.base import BaseCommand
 from sigrun.commands import factory
 
 
 class DeferredCommandInput:
-    command: BaseCommand
-    options: dict
+    command_name: str
+    options: List[dict]
     application_id: str
     interaction_token: str
 
-    def __init__(self, command, application_id: str, interaction_token: str):
-        self.command = command
+    def __init__(self, command_name: str, options: List[dict], application_id: str, interaction_token: str):
+        self.command_name = command_name
+        self.options = options
         self.application_id = application_id
         self.interaction_token = interaction_token
 
     @staticmethod
     def from_dict(body: dict):
         try:
-            command_name = body.get("command")
+            command_name = body.get("command_name")
             options = body.get("options")
             application_id = body.get("application_id")
             interaction_token = body.get("interaction_token")
         except KeyError:
             raise RuntimeError(f"Received an improperly formatted event body: {input}.")
 
-        command = factory.get_command(command_name, options)
-        return DeferredCommandInput(command, application_id, interaction_token)
+        return DeferredCommandInput(command_name, options, application_id, interaction_token)
 
     def to_json(self) -> str:
-        return json.dumps(self.__dict__)
+        return json.dumps(
+            {
+                "command_name": self.command_name,
+                "options": self.options,
+                "application_id": self.application_id,
+                "interaction_token": self.interaction_token
+            }
+        )
