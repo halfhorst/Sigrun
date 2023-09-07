@@ -12,7 +12,7 @@ RUN echo steam steam/question select "I AGREE" | debconf-set-selections && \
     apt-get -q -y update && \
     # is this necessary?
     DEBIAN_FRONTEND=noninteractive apt-get install -q -y --no-install-recommends \
-      lib32gcc1 steamcmd net-tools ca-certificates gosu
+      libatomic1 libpulse-dev libpulse0 lib32gcc1 steamcmd net-tools ca-certificates gosu
 
 RUN addgroup --gid 1000 steam && \
     adduser --system --home /home/steam --shell /bin/false --uid 1000 --gid 1000 steam
