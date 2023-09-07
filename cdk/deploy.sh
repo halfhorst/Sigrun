@@ -1,6 +1,6 @@
 #!/bin/sh
 
-python build_lambda_zip.py
+poetry run python build_lambda_zip.py
 
 RESPONSE=$?
 if [ $RESPONSE != 0 ]
@@ -9,4 +9,5 @@ then
     return RESPONSE;
 fi
 
-cdk deploy --all
+poetry run cdk deploy --all
+
