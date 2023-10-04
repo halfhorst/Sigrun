@@ -4,6 +4,18 @@ Sigrun is a Discord bot that helps you manage a Valheim server instance. It was 
 
 **This a personal project and I develop it like one. I may break it without warning or do other unruly things.**
 
+## TODO
+
+- Explore provisioning an ec2 instance and just triggering start/stop
+  - use cheaper EBS in this case
+- Fix "already initiated bug"
+  - attempting to start a server twice is indistinguishable from the bot correctly
+    checking in on the status of an instance it started
+- Add command to copy world data to S3 with an expiration date and provid a presigned URL
+- Avoid writing ephemeral data to DDB and just query it on demand
+- Add a connection API to the host
+- Explore a service discovery url
+
 ## Getting Started
 
 ### Pre-requisites
