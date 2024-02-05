@@ -1,0 +1,1 @@
+CHAT_INPUT_TYPE = 1

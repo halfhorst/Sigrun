@@ -16,10 +16,13 @@ class DiscordOption:
 
 class StartServerOptions:
     """Define options interface, serialize/de-serialize, and discord metadata"""
-    server_name = DiscordOption('server-name')
-    server_password = DiscordOption('server-password')
 
-    def __init__(self, name: str, password: str):
+    game = DiscordOption("game")
+    server_name = DiscordOption("server-name")
+    server_password = DiscordOption("server-password")
+
+    def __init__(self, game: str, name: str, password: str):
+        self.game = game
         self.server_name.value = name
         self.server_password.value = password
 
@@ -28,42 +31,52 @@ class StartServerOptions:
         return [
             {
                 "type": STRING_OPTION_TYPE,
+                "name": StartServerOptions.game.name,
+                "description": "The game to start.",
+                "required": True,
+            },
+            {
+                "type": STRING_OPTION_TYPE,
                 "name": StartServerOptions.server_name.name,
-                "description": "The name of the server. This will be used for the seed and will " +
-                               "show up in Valheim's server list.",
+                "description": "The name of the server. This will be used for the seed and will "
+                + "show up in Valheim's server list.",
                 "required": True,
             },
             {
                 "type": STRING_OPTION_TYPE,
                 "name": StartServerOptions.server_password.name,
                 "description": "The server password.",
-                "required": True
-            }
+                "required": True,
+            },
         ]
 
     @staticmethod
     def from_dict(options: List[dict]):
-        options = {option['name']: option['value'] for option in options}
-        return StartServerOptions(options[StartServerOptions.server_name.name],
-                                  options[StartServerOptions.server_password.name])
+        options = {option["name"]: option["value"] for option in options}
+        return StartServerOptions(
+            options[StartServerOptions.server_name.name],
+            options[StartServerOptions.server_password.name],
+        )
 
 
 class StopServerOptions:
-    server_name = DiscordOption('server-name')
+    server_name = DiscordOption("server-name")
 
     def __init__(self, name: str):
         self.server_name.value = name
 
     @staticmethod
     def get_discord_metadata() -> List[Dict]:
-        return [{
-            "type": STRING_OPTION_TYPE,
-            "name": StopServerOptions.server_name.name,
-            "description": "The name of the world to stop. Check world-status to see what is currently up.",
-            "required": True,
-        }]
+        return [
+            {
+                "type": STRING_OPTION_TYPE,
+                "name": StopServerOptions.server_name.name,
+                "description": "The name of the world to stop. Check world-status to see what is currently up.",
+                "required": True,
+            }
+        ]
 
     @staticmethod
     def from_dict(options: List[dict]):
-        options = {option['name']: option['value'] for option in options}
+        options = {option["name"]: option["value"] for option in options}
         return StopServerOptions(options[StopServerOptions.server_name.name])

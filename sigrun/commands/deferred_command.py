@@ -11,7 +11,13 @@ class DeferredCommandInput:
     application_id: str
     interaction_token: str
 
-    def __init__(self, command_name: str, options: List[dict], application_id: str, interaction_token: str):
+    def __init__(
+        self,
+        command_name: str,
+        options: List[dict],
+        application_id: str,
+        interaction_token: str,
+    ):
         self.command_name = command_name
         self.options = options
         self.application_id = application_id
@@ -27,7 +33,9 @@ class DeferredCommandInput:
         except KeyError:
             raise RuntimeError(f"Received an improperly formatted event body: {input}.")
 
-        return DeferredCommandInput(command_name, options, application_id, interaction_token)
+        return DeferredCommandInput(
+            command_name, options, application_id, interaction_token
+        )
 
     def to_json(self) -> str:
         return json.dumps(
@@ -35,6 +43,6 @@ class DeferredCommandInput:
                 "command_name": self.command_name,
                 "options": self.options,
                 "application_id": self.application_id,
-                "interaction_token": self.interaction_token
+                "interaction_token": self.interaction_token,
             }
         )
