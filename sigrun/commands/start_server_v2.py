@@ -6,7 +6,8 @@ from loguru import logger
 from sigrun.commands.base import BaseCommand
 from sigrun.commands.discord import CHAT_INPUT_TYPE
 from sigrun.model.options import StartServerOptions
-from sigrun.model.game import GAMES
+
+# from sigrun.model.game import GAMES
 
 session = boto3.Session(profile_name="sigrun")
 ec2 = session.resource("ec2")

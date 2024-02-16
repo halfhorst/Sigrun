@@ -5,12 +5,6 @@ import httpx
 import pprint
 from loguru import logger
 
-# from sigrun.commands.factory import COMMANDS
-
-# from sigrun.commands import factory
-# from sigrun.model.options import StartServerOptions, StopServerOptions
-# from sigrun.commands.server_status import ServerStatus
-# from sigrun.commands.stop_server import StopServer
 from sigrun.commands.start_server_v2 import StartServer
 from sigrun.commands.list_games import ListGames
 
@@ -18,8 +12,8 @@ from sigrun.commands.list_games import ListGames
 APPLICATION_ID = os.getenv("APPLICATION_ID")
 GUILD_ID = os.getenv("GUILD_ID")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-# if not (APPLICATION_ID and GUILD_ID and BOT_TOKEN):
-#     raise RuntimeError("Missing a required environment variable.")
+if not (APPLICATION_ID and GUILD_ID and BOT_TOKEN):
+    raise RuntimeError("Missing a required environment variable.")
 
 BASE_URL = "https://discord.com/api/v10"
 COMMANDS_URL = f"{BASE_URL}/applications/{APPLICATION_ID}/commands"

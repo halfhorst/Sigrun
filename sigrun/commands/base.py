@@ -9,7 +9,7 @@ https://discord.com/developers/docs/interactions/receiving-and-responding#follow
 
 
 class BaseCommand:
-    """The Sigrun command interface. It supports registerin commands with Discord and two-phase
+    """The Sigrun command interface. It supports self-registration with Diregistering commands with Discord and two-phase
     execution."""
 
     name: str
@@ -31,17 +31,17 @@ class BaseCommand:
         needs to return in 3 seconds."""
         raise NotImplementedError
 
-    @staticmethod
-    def is_deferred() -> bool:
-        """The method that indicates if a command should be deferred. If `True`, after
-        `handler` is run, the command will be placed in an SQS queue for further
-        execution, where a second Lambda will run `follow_up`."""
-        raise NotImplementedError
+    # @staticmethod
+    # def is_deferred() -> bool:
+    #     """The method that indicates if a command should be deferred. If `True`, after
+    #     `handler` is run, the command will be placed in an SQS queue for further
+    #     execution, where a second Lambda will run `follow_up`."""
+    #     raise NotImplementedError
 
-    @classmethod
-    def deferred_handler(cls) -> str:
-        """A followup method to run if the command is deferred"""
-        raise NotImplementedError
+    # @classmethod
+    # def deferred_handler(cls) -> str:
+    #     """A followup method to run if the command is deferred"""
+    #     raise NotImplementedError
 
     @classmethod
     def get_option(cls, name: str, options: list):

@@ -1,10 +1,10 @@
-from enum import Enum
+# from enum import Enum
 
 
-class ContainerTag(Enum):
-    GAME = 'sigrun-game'
-    SERVER = 'sigrun-server-name'
-    PASSWORD = 'sigrun-server-password'
+# class ContainerTag(Enum):
+#     GAME = 'sigrun-game'
+#     SERVER = 'sigrun-server-name'
+#     PASSWORD = 'sigrun-server-password'
 
-    def __init__(self, string: str):
-        self.tag = string
+#     def __init__(self, string: str):
+#         self.tag = string
