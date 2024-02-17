@@ -4,10 +4,10 @@ version = "0.1.0"
 description = "Sigrun is a Discord bot that manages your Valheim server."
 authors = ["Cody"]
 readme = "README.md"
-packages = [{include = "sigrun"}]
+packages = [{ include = "sigrun" }]
 
 [tool.poetry.dependencies]
-python = "^3.7"
+python = "^3.10"
 loguru = "^0.5"
 click = "^7.1.2"
 aws-cdk-lib = "^2.49.0"

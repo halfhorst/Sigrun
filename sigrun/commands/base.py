@@ -1,5 +1,8 @@
-# Lambda EFS mount requires path begin with /mnt.
-SERVER_DATA_ROOT = "/mnt/server_data"
+from enum import Enum
+from typing import Callable, List
+
+from loguru import logger
+
 
 """/**
 https://github.com/discord/discord-api-docs/issues/2389
@@ -8,11 +11,28 @@ https://discord.com/developers/docs/interactions/receiving-and-responding#follow
 **/"""
 
 
-class BaseCommand:
+class Context(Enum):
+    DISCORD = 1
+    CLI = 2
+
+
+def get_message_sender(context: Context) -> Callable[[str], None]:
+    if context == Context.DISCORD:
+        # TODO:
+        logger.info
+    else:
+        return logger.info
+
+
+class Command:
     """The Sigrun command interface. It supports self-registration with Diregistering commands with Discord and two-phase
     execution."""
 
-    name: str
+    # Context-specific messaging
+    send_message: Callable
+
+    def __init__(self, context: Context):
+        self.send_message = get_message_sender(context)
 
     @staticmethod
     def get_cli_description():

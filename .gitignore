@@ -134,5 +134,7 @@ cdk.out/
 *.zip
 *.env
 .pylintrc
-
+bin/
 .idea/
+lib64
+pyvenv.cfg

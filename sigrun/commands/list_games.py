@@ -1,21 +1,19 @@
+import json
 from typing import List
 from importlib import resources
 
-from sigrun.commands.base import BaseCommand
+from sigrun.commands.base import Command, Context
 from sigrun.commands.discord import CHAT_INPUT_TYPE
 
-# from sigrun.model.game import GAMES
 
+class ListGames(Command):
 
-class ListGames(BaseCommand):
-    name = "list-games"
-
-    def __init__(self, options: List[dict]):
-        pass
+    def __init__(self, context: Context):
+        super().__init__(context)
 
     @staticmethod
     def get_cli_description():
-        return "List games that Sigrun supports."
+        return "List supported games."
 
     @staticmethod
     def get_discord_metadata() -> dict:
@@ -29,10 +27,7 @@ class ListGames(BaseCommand):
     def handler(self) -> str:
         games = []
         for game in resources.contents("sigrun.games"):
-            games.append(resources.op)
-        # with resources.open_text("sigrun.games.valheim", "metadata.json") as f:
-        #     return f.read()
-
-    @staticmethod
-    def is_defered() -> bool:
-        return False
+            with resources.open_text(f"sigrun.games.{game}", "metadata.json") as f:
+                metadata = json.loads(f.read())
+                games.append(metadata["name"])
+        self.send_message(games)
