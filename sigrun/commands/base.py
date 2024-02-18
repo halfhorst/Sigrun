@@ -1,3 +1,5 @@
+from typing import Optional
+
 """/**
 https://github.com/discord/discord-api-docs/issues/2389
 https://github.com/discord/discord-api-docs/pull/2362/files
@@ -24,7 +26,7 @@ class Command:
         raise NotImplementedError
 
     @classmethod
-    def handler(cls) -> str:
+    def handler(cls) -> Optional[str]:
         """The handler for the command when it is invoked by the Lambda. This
         needs to return in 3 seconds."""
         raise NotImplementedError

@@ -1,6 +1,6 @@
 from sigrun.commands.base import Command
-from sigrun.commands.discord import CHAT_INPUT_TYPE, STRING_OPTION_TYPE
-from sigrun.model.context import get_messager
+from sigrun.model.discord import CHAT_INPUT_TYPE, STRING_OPTION_TYPE
+from sigrun.model.messenger import get_messenger
 
 
 class ListServers(Command):
@@ -34,11 +34,11 @@ class ListServers(Command):
             ],
         }
 
-    def handler(self) -> str:
+    def handler(self):
         message = "Listing game servers"
         if self.game:
             message += f" for {self.game}"
-        get_messager()(message)
+        get_messenger()(message)
 
     def __str__(self):
         return "ListServers"

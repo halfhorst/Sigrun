@@ -1,7 +1,7 @@
 from sigrun.cloud.session import ec2
 from sigrun.commands.base import Command
-from sigrun.commands.discord import CHAT_INPUT_TYPE, STRING_OPTION_TYPE
-from sigrun.model.context import get_messager
+from sigrun.model.discord import CHAT_INPUT_TYPE, STRING_OPTION_TYPE
+from sigrun.model.messenger import get_messenger
 from sigrun.model.game import Game
 
 
@@ -53,8 +53,8 @@ class StartServer(Command):
             ],
         }
 
-    def handler(self) -> str:
-        get_messager()(f"Starting {self.game} server {self.server_name}")
+    def handler(self):
+        get_messenger()(f"Starting {self.game} server {self.server_name}")
         # instance = ec2.create_instances(
         #     BlockDeviceMappings=[
         #         {
@@ -84,7 +84,7 @@ class StartServer(Command):
         #     ]
         # )
 
-        # get_messager()(f"Started {self.game} instance {self.server_name}")
+        # get_messenger()(f"Started {self.game} instance {self.server_name}")
 
     def get_instance(self, name: str):
         # Check if an instance with the given name already exists
@@ -94,7 +94,7 @@ class StartServer(Command):
 
         for instance in instances:
             if instance.state["Name"] != "terminated":
-                get_messager()(
+                get_messenger()(
                     f"An instance with the name '{name}' already exists (ID: {instance.id})."
                 )
                 return instance.id
