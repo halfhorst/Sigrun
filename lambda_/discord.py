@@ -1,6 +1,5 @@
 import json
 import pprint
-from typing import List
 
 import boto3
 from aws_lambda_typing import events
@@ -8,88 +7,77 @@ from loguru import logger
 from nacl.exceptions import BadSignatureError
 from nacl.signing import VerifyKey
 
-from sigrun.commands import factory
-from sigrun.commands.deferred_command import DeferredCommandInput
+from sigrun.commands import COMMANDS, discord
+from sigrun.model.context import set_context_discord
 
-# TODO: Move this into a secret
-APPLICATION_PUBLIC_KEY = "13ec6cb5326e5b5fb0394d8744540a3a108daba4bd454b193f3950a0bd8e9a72"
-QUEUE_NAME = "SigrunMessageQueue"
+client = boto3.client(service_name="secretsmanager")
+sqs_client = boto3.client("sqs")
+
 PING_TYPE = 1
-APPLICATION_COMMAND_TYPE = 4
-
-sqs_client = boto3.client('sqs')
 
 
 # Context object
 # https://docs.aws.amazon.com/lambda/latest/dg/python-context.html
 def main(event: events.APIGatewayProxyEventV2, context):
     """The handler for API calls assumed to originate from Discord.
-    This is invoked for any `ANY \`. In other words, any request to 
+    This is invoked for any `ANY \`. In other words, any request to
     the API flows through this method, but we assume the shape Discord
     emits."""
     logger.info(f"Received an event!: {event}")
 
     headers = event["headers"]
-    try:
-        raw_body = event["body"]
-    except KeyError:
-        return build_response(200, {}, {})
+    raw_body = event["body"]
     body = json.loads(raw_body)
     logger.info(f"Headers: {headers}")
     logger.info(f"Message body: {body}")
 
-    if not validate_signature(headers["x-signature-ed25519"],
-                              headers["x-signature-timestamp"],
-                              raw_body):
-        logger.warning("Signature not valid. returning 401")
-        return build_response(401, {}, {})
+    if not validate_signature(
+        headers["x-signature-ed25519"], headers["x-signature-timestamp"], raw_body
+    ):
+        logger.warning("Signature not valid.")
+        return {"statusCode": 401}
     logger.info("Signature valid.")
 
+    application_id = body["application_id"]
+    interaction_id = body["id"]
+    interaction_token = body["token"]
+
+    set_context_discord(application_id, interaction_token, headers)
+
     if body["type"] == PING_TYPE:
-        return build_response(200, {}, {"type": PING_TYPE})
+        logger.warn("Acking a ping.")
+        # return discord.respond(
+        #     json.dumps({"type": PING_TYPE}),
+        #     application_id,
+        #     interaction_token,
+        #     headers,
+        #     status_code=200,
+        # )
 
     command_name = body["data"]["name"]
     options = body["data"]["options"] if "options" in body["data"] else []
 
-    command = factory.get_command(command_name, options)
+    command = COMMANDS.get(command_name)
+    if command is None:
+        logger.error(f"Command {command_name} is not supported.")
+        # return discord.respond("foo")
+
     logger.info("Command " + command_name)
     logger.info("Options " + ",".join(pprint.pformat(options)))
-    response = command.handler()
-
-    if command.is_deferred():
-        enqueue(command.name, options, body['application_id'], body['token'])
-
-    return build_response(200, {}, {"type": APPLICATION_COMMAND_TYPE, "data": {"content": response}})
-
-
-def enqueue(command_name: str, options: List[dict], application_id, interaction_token):
-    queue_url = sqs_client.get_queue_url(QueueName=QUEUE_NAME)["QueueUrl"]
-    if queue_url is None:
-        logger.error("Failed to fine SQS queue to enqueue to.")
-        return
-
-    deferred_command_input = DeferredCommandInput(command_name, options, application_id, interaction_token)
-    sqs_client.send_message(QueueUrl=queue_url, MessageBody=deferred_command_input.to_json())
+    # command.handler(**options)
 
 
 def validate_signature(signature: str, timestamp: str, body: str):
-    verify_key = VerifyKey(bytes.fromhex(APPLICATION_PUBLIC_KEY))
+    verify_key = VerifyKey(bytes.fromhex(get_application_public_key))
     try:
-        verify_key.verify(f'{timestamp}{body}'.encode(), bytes.fromhex(signature))
+        verify_key.verify(f"{timestamp}{body}".encode(), bytes.fromhex(signature))
         return True
     except BadSignatureError:
         return False
 
 
-def build_response(status_code: int, headers: dict, body: dict):
-    headers["Content-Type"] = "application/json"
-    response = {
-        "statusCode": status_code,
-        "isBase64Encoded": "false",
-        "headers": headers,
-        "multiValueHeaders": {},
-        "body": json.dumps(body)
-    }
-
-    logger.info(f"Response object: {response}")
-    return response
+def get_application_public_key():
+    secret_string = json.loads(
+        client.get_secret_value(SecretId="APPLICATION_PUBLIC_KEY")["SecretString"]
+    )
+    return secret_string["APPLICATION_PUBLIC_KEY"]

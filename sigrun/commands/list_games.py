@@ -1,15 +1,16 @@
 import json
-from typing import List
 from importlib import resources
 
-from sigrun.commands.base import Command, Context
+from sigrun.commands.base import Command
 from sigrun.commands.discord import CHAT_INPUT_TYPE
+from sigrun.model.context import get_messager
 
 
 class ListGames(Command):
 
-    def __init__(self, context: Context):
-        super().__init__(context)
+    @staticmethod
+    def get_discord_name():
+        return "list_games"
 
     @staticmethod
     def get_cli_description():
@@ -19,7 +20,7 @@ class ListGames(Command):
     def get_discord_metadata() -> dict:
         return {
             "type": CHAT_INPUT_TYPE,
-            "name": "list-games",
+            "name": ListGames.get_discord_name(),
             "description": ListGames.get_cli_description(),
             "default_permission": True,
         }
@@ -30,4 +31,7 @@ class ListGames(Command):
             with resources.open_text(f"sigrun.games.{game}", "metadata.json") as f:
                 metadata = json.loads(f.read())
                 games.append(metadata["name"])
-        self.send_message(games)
+        get_messager()(games)
+
+    def __str__(self):
+        return "ListGames"

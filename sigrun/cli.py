@@ -1,51 +1,52 @@
 import click
-
 from loguru import logger
 
-from sigrun.commands.base import Command, Context
-from sigrun.commands.start_server import StartServer
-from sigrun.commands.list_games import ListGames
+from sigrun.commands import (
+    ListGames,
+    ListServers,
+    ServerStatus,
+    StartServer,
+    StopServer,
+)
+from sigrun.model.context import set_context_cli
 
 
-@click.group()
+@click.group(invoke_without_command=True)
 def sigrun():
-    """The Sigrun Discord bot command line interface. Used to list and register commands
-    with your application."""
+    """The Sigrun Discord bot command line interface.
+    Used to list and register commands with your application."""
+    logger.info("Setting context CLI")
+    set_context_cli()
 
 
 @sigrun.command(help=ListGames.get_cli_description())
 def list_games():
-    ListGames({}, context=Context.CLI).handler()
+    ListGames().handler()
 
-# @sigrun.command(help=ServerStatus.get_cli_description())
-# def server_status():
-#     command = ServerStatus({})
-#     logger.info(command.handler())
-#     if command.is_deferred():
-#         logger.info(command.deferred_handler())
+
+@sigrun.command(help=ServerStatus.get_cli_description())
+@click.argument("game")
+@click.argument("server_name")
+def server_status(game: str, server_name: str):
+    ServerStatus(game, server_name).handler()
+
+
+@sigrun.command(help=ListServers.get_cli_description())
+@click.option("-s", "--server_name")
+def list_servers(server_name: str = ""):
+    ListServers(server_name).handler()
 
 
 @sigrun.command(help=StartServer.get_cli_description())
 @click.argument("game")
 @click.argument("server_name")
-@click.argument("server_password")
-def start_server(game: str, server_name: str, server_password: str):
-    # options = [
-    #     {"name": ""}
-    #     {"name": StartServerOptions.server_name.name, "value": server_name},
-    #     {"name": StartServerOptions.server_password.name, "value": server_password},
-    # ]
-    command = StartServer(game, server_name, server_password)
-    command.handler()
-    if command.is_deferred():
-        logger.info(command.deferred_handler())
+@click.argument("password")
+def start_server(game: str, server_name: str, password: str):
+    StartServer(game, server_name, password).handler()
 
 
-# @sigrun.command(help=StopServer.get_cli_description())
-# @click.argument("server_name")
-# def stop_server(server_name: str):
-#     options = [{"name": StopServerOptions.server_name.name, "value": server_name}]
-#     command = StopServer(options)
-#     logger.info(command.handler())
-#     if command.is_deferred():
-#         logger.info(command.deferred_handler())
+@sigrun.command(help=StopServer.get_cli_description())
+@click.argument("game")
+@click.argument("server_name")
+def stop_server(game: str, server_name: str):
+    StopServer(game, server_name).handler()

@@ -1,6 +1,6 @@
+import json
 from dataclasses import dataclass
 from importlib import resources
-import json
 
 
 @dataclass
@@ -13,9 +13,14 @@ class Game:
     def __init__(self, name: str):
         with resources.open_text(f"sigrun.games.{name}", "metadata.json") as f:
             metadata = json.loads(f.read())
-            self.name = metadata["name"]
-            self.storage = metadata["storage"]
-            self.instance_type = metadata["instance_type"]
+            for key, value in metadata.items():
+                setattr(self, key, value)
 
         with resources.open_text(f"sigrun.games.{name}", "start.sh") as f:
             self.start_script = f.read()
+
+        if not hasattr(self, "start_script") or not hasattr(self, "name"):
+            raise RuntimeError(f"Game {name} does not have valid metadata.")
+
+    def __str__(self) -> str:
+        return self.name

@@ -1,63 +1,48 @@
-# import pprint
-# from typing import List
-
-# from boto3.dynamodb.conditions import Key
-# from loguru import logger
-
-# from sigrun.cloud.util import CloudUtility
-# from sigrun.commands.base import BaseCommand
-# from sigrun.model.game import VALHEIM
-# from sigrun.commands.discord import CHAT_INPUT_TYPE
+from sigrun.commands.base import Command
+from sigrun.commands.discord import CHAT_INPUT_TYPE, STRING_OPTION_TYPE
+from sigrun.model.context import get_messager
+from sigrun.model.game import Game
 
 
-# class ServerStatus(BaseCommand):
-#     name = "server-status"
+class ServerStatus(Command):
 
-#     def __init__(self, options: List[dict]):
-#         self.game = VALHEIM
+    def __init__(self, game: str, server_name: str):
+        self.game = Game(game)
+        self.server_name = server_name
 
-#     @staticmethod
-#     def get_cli_description():
-#         return "List server status and details for all existing Valheim worlds."
+    @staticmethod
+    def get_discord_name():
+        return "server-status"
 
-#     @staticmethod
-#     def get_discord_metadata() -> dict:
-#         return {
-#             "type": CHAT_INPUT_TYPE,
-#             "name": "server-status",
-#             "description": ServerStatus.get_cli_description(),
-#             "default_permission": True,
-#         }
+    @staticmethod
+    def get_cli_description():
+        return "List information about a game server."
 
-#     def handler(self) -> str:
-#         cloud_utility = CloudUtility(self.game)
-#         table = cloud_utility.get_table_resource()
+    @staticmethod
+    def get_discord_metadata() -> dict:
+        return {
+            "type": CHAT_INPUT_TYPE,
+            "name": ServerStatus.get_discord_name(),
+            "description": ServerStatus.get_cli_description(),
+            "default_permission": True,
+            "options": [
+                {
+                    "type": STRING_OPTION_TYPE,
+                    "name": "game",
+                    "description": "The kind of game to start.",
+                    "required": True,
+                },
+                {
+                    "type": STRING_OPTION_TYPE,
+                    "name": "server_name",
+                    "description": "The name of the server.",
+                    "required": True,
+                },
+            ],
+        }
 
-#         database_server_data = table.query(
-#             KeyConditionExpression=Key("game").eq(str(self.game))
-#         )
-#         if database_server_data["ResponseMetadata"]["HTTPStatusCode"] != 200:
-#             logger.error(f"Failed to query DynamoDb for {self.game} servers.")
+    def handler(self) -> str:
+        get_messager()(f"Getting server status for {self.game} {self.server_name}")
 
-#         if "Items" not in database_server_data:
-#             database_server_data = {}
-#         else:
-#             database_server_data = {
-#                 record["serverName"]: record for record in database_server_data["Items"]
-#             }
-
-#         for _, data in database_server_data.items():
-#             data.pop("taskArn")
-#         return self.format_server_data(database_server_data)
-
-#     @staticmethod
-#     def format_server_data(data: dict) -> str:
-#         for k, v in data.items():
-#             v["totalSessions"] = str(v["totalSessions"])
-#             v["totalUptime"] = str(round(v["totalUptime"] / 3600, 2)) + " hours"
-#             del v["uptimeStart"]
-#         return pprint.pformat(data)
-
-#     @staticmethod
-#     def is_deferred() -> bool:
-#         return False
+    def __str__(self):
+        return "ServerStatus"
