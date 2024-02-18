@@ -11,11 +11,24 @@ class Command:
     """The Sigrun command interface. It supports self-registration with Diregistering commands with Discord and two-phase execution."""
 
     @staticmethod
-    def get_discord_name():
+    def get_discord_name() -> str:
         """The name of this comand."""
+        raise NotImplementedError
 
     @staticmethod
-    def get_cli_description():
+    def is_deferred() -> bool:
+        """Discord interactions must be responded to within 3 seconds. If your command takes longer than this, indicate it is
+        deferred by overriding this method. A deferred command will be acknlowedged by `get_ack_message` and then executed
+        asynchronously by a second Lambda function."""
+        return False
+
+    @staticmethod
+    def get_ack_message() -> str:
+        """The message an interaction is responded to with immediately."""
+        return ""
+
+    @staticmethod
+    def get_cli_description() -> str:
         """A description for the command line interface. You should probably use the same as
         the one in the discord metadata."""
         raise NotImplementedError

@@ -11,6 +11,9 @@ class Game:
     instance_type: str
 
     def __init__(self, name: str):
+
+        # NOTE: The name that a user can use for a particular game in an argument
+        #       corresponds to the dir name containing the game's metadata.
         with resources.open_text(f"sigrun.games.{name}", "metadata.json") as f:
             metadata = json.loads(f.read())
             for key, value in metadata.items():

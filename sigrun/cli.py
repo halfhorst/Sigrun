@@ -1,5 +1,4 @@
 import click
-from loguru import logger
 
 from sigrun.commands import (
     ListGames,
@@ -8,15 +7,12 @@ from sigrun.commands import (
     StartServer,
     StopServer,
 )
-from sigrun.model.context import set_context_cli
 
 
 @click.group(invoke_without_command=True)
 def sigrun():
     """The Sigrun Discord bot command line interface.
     Used to list and register commands with your application."""
-    logger.info("Setting context CLI")
-    set_context_cli()
 
 
 @sigrun.command(help=ListGames.get_cli_description())

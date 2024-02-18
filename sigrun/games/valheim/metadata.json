@@ -1,3 +1,5 @@
 {
-    "name": "Valheim"
+    "name": "Valheim",
+    "storage": 10,
+    "instance_type": "m7g.xlarge"
 }
