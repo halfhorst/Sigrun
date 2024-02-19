@@ -27,15 +27,17 @@ class ListGames(Command):
         }
 
     def handler(self):
-        games = []
+        games = {}
         for short_name in resources.contents("sigrun.games"):
             with resources.open_text(
                 f"sigrun.games.{short_name}", "metadata.json"
             ) as f:
                 metadata = json.loads(f.read())
-                games.append({metadata["name"]: short_name})
+                games.update({metadata["name"]: short_name})
+
+        format_name = lambda k, v: f"For {k} use '{v}'"
         get_messenger()(
-            f"I support the following games and corresponding arguments:\n{pprint.pformat(games)}"
+            f"I support the following games:\n{', '.join([format_name(k, v) for k, v in games.items()])}"
         )
 
     def __str__(self):

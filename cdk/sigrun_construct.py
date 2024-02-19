@@ -25,7 +25,7 @@ class SigrunConstruct(Construct):
                 secret_name="APPLICATION_PUBLIC_KEY",
                 secret_object_value={
                     "APPLICATION_PUBLIC_KEY": SecretValue.unsafe_plain_text(
-                        os.environ.get("APPLICATION_PUBLIC_KEY", "")
+                        os.environ.get("APPLICATION_PUBLIC_KEY", None)
                     )
                 },
             )

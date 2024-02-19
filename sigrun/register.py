@@ -33,8 +33,10 @@ def list(v: bool = False):
     r = httpx.get(COMMANDS_URL, headers=AUTH_HEADERS)
     if r.status_code != 200:
         logger.error(f"Failed to get registered commands: {pprint.pformat(r.json())}")
+        return
     if v:
         logger.info(f"Registered commands: {pprint.pformat(r.json())}")
+        return
 
     logger.info(
         ", ".join(f"{command['name']}: {command['id']}" for command in r.json())

@@ -1,5 +1,6 @@
 import json
 import os
+import pprint
 
 import boto3
 from aws_lambda_typing import events
@@ -13,7 +14,7 @@ from sigrun.commands import COMMANDS
 secrets_manager = boto3.client("secretsmanager")
 lambda_client = boto3.client("lambda")
 
-APPLICATION_COMMAND_TYPE = 4
+CHANNEL_MESSAGE_WITH_SOURCE = 4
 PING_TYPE = 1
 
 
@@ -44,7 +45,8 @@ def main(event: events.APIGatewayProxyEventV2, context):
         return build_response(200, {"type": PING_TYPE})
 
     command_name = body["data"]["name"]
-    if COMMANDS.get(command_name) is None:
+    command = COMMANDS.get(command_name)
+    if command is None:
         logger.error(f"Command {command_name} is not supported.")
         return {"statusCode": 400}
 
@@ -53,6 +55,9 @@ def main(event: events.APIGatewayProxyEventV2, context):
         if "options" in body["data"]
         else {}
     )
+
+    logger.info("Command: " + command_name)
+    logger.info("Options: " + pprint.pformat(options))
     invoke_deferred(
         {
             "command": command_name,
@@ -65,12 +70,11 @@ def main(event: events.APIGatewayProxyEventV2, context):
 
     return build_response(
         200,
-        {
-            "type": APPLICATION_COMMAND_TYPE,
-            "data": {
-                "content": f"I got your request for {command_name}! Working on it now."
-            },
-        },
+        {"type": 5},
+        # {
+        #     "type": CHANNEL_MESSAGE_WITH_SOURCE,
+        #     "data": {"content": command.get_ack_message()},
+        # },
     )
 
 

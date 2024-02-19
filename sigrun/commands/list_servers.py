@@ -29,7 +29,7 @@ class ListServers(Command):
                     "name": "game",
                     "required": "false",
                     "description": "Only list servers of this game.",
-                    "required": True,
+                    "required": False,
                 },
             ],
         }
