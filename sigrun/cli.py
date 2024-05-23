@@ -1,3 +1,5 @@
+import sys
+
 import click
 
 from sigrun.commands import (
@@ -7,6 +9,7 @@ from sigrun.commands import (
     StartServer,
     StopServer,
 )
+from sigrun.exceptions import GameNotFoundError
 
 
 @click.group(invoke_without_command=True)
@@ -38,7 +41,10 @@ def list_servers(server_name: str = ""):
 @click.argument("server_name")
 @click.argument("password")
 def start_server(game: str, server_name: str, password: str):
-    StartServer(game, server_name, password).handler()
+    try:
+        StartServer(game, server_name, password).handler()
+    except GameNotFoundError:
+        sys.exit(1)
 
 
 @sigrun.command(help=StopServer.get_cli_description())

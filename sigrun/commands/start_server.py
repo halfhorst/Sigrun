@@ -1,8 +1,12 @@
-from sigrun.cloud.session import ec2
-from sigrun.commands.base import Command
-from sigrun.model.discord import CHAT_INPUT_TYPE, STRING_OPTION_TYPE
+from loguru import logger
+
 from sigrun.model.messenger import get_messenger
 from sigrun.model.game import Game
+from sigrun.model.discord import CHAT_INPUT_TYPE, STRING_OPTION_TYPE
+from sigrun.exceptions import GameNotFoundError
+from sigrun.commands.base import Command
+from sigrun.cloud.session import ec2_resource
+from sigrun.cloud import ec2
 
 
 class StartServer(Command):
@@ -11,7 +15,8 @@ class StartServer(Command):
         try:
             self.game = Game(game)
         except ModuleNotFoundError:
-            raise RuntimeError(f"Invalid game name {game}")
+            logger.error(f"Invalid game name {game}")
+            raise GameNotFoundError
         self.server_name = server_name
         self.password = password
 
@@ -54,50 +59,61 @@ class StartServer(Command):
         }
 
     def handler(self):
-        get_messenger()(f"Starting {self.game} server {self.server_name}")
-        # instance = ec2.create_instances(
-        #     BlockDeviceMappings=[
-        #         {
-        #             "DeviceName": "/dev/sdf",
-        #             "Ebs": {
-        #                 "DeleteOnTermination": False,
-        #                 "VolumeSize": self.game.storage,
-        #                 "VolumeType": "gp3",
-        #             },
-        #         }
-        #     ],
-        #     # Amazon Linux ARM
-        #     # ImageId="ami-0ecb0bb5d6b19457a",
-        #     ImageId="ami-008fe2fc65df48dac",
-        #     InstanceType=self.game.instance_type,
-        #     MaxCount=1,
-        #     MinCount=1,
-        #     UserData=self.game.start_script,
-        # ).pop()
+        instance = ec2.get_non_termianted_instance(str(self.game), self.server_name)
+        if instance is None:
+            get_messenger()(f"Creating {self.game} server {self.server_name}")
+            self.create_instance()
+            return
 
-        # instance.create_tags(
-        #     Tags=[
-        #         {
-        #             "Key": "Name",
-        #             "Value": f"{self.game}-{self.server_name}",
-        #         }
-        #     ]
-        # )
+        if instance.state["Name"] == "running":
+            get_messenger()(
+                f"{self.game} server {self.server_name} is already running!"
+            )
+            return
 
-        # get_messenger()(f"Started {self.game} instance {self.server_name}")
+        if instance.state["Name"] == "stopped":
+            get_messenger()(f"Restarting {self.game} server {self.server_name}")
+            self.restart_instance(instance)
+            return
 
-    def get_instance(self, name: str):
-        # Check if an instance with the given name already exists
-        instances = ec2.instances.filter(
-            Filters=[{"Name": "tag:Name", "Values": [name]}]
+        get_messenger()(
+            f"I found an existing instance, but it's in an unrecognized state: {instance.state['Name']}. Please try again"
         )
 
-        for instance in instances:
-            if instance.state["Name"] != "terminated":
-                get_messenger()(
-                    f"An instance with the name '{name}' already exists (ID: {instance.id})."
-                )
-                return instance.id
+    def create_instance(self):
+        instance = ec2_resource.create_instances(
+            BlockDeviceMappings=[
+                {
+                    "DeviceName": "/dev/sdf",
+                    "Ebs": {
+                        "DeleteOnTermination": False,
+                        "VolumeSize": self.game.storage,
+                        "VolumeType": "gp3",
+                    },
+                }
+            ],
+            ImageId="ami-008fe2fc65df48dac",
+            InstanceType=self.game.instance_type,
+            MaxCount=1,
+            MinCount=1,
+            UserData=self.game.start_script,
+        ).pop()
+
+        instance.create_tags(
+            Tags=[
+                {
+                    "Key": "Name",
+                    "Value": ec2.get_tag_name(str(self.game), self.server_name),
+                },
+                {"Key": "Password", "Value": self.password},
+            ]
+        )
+
+        get_messenger()(f"Started {self.game} instance {self.server_name}")
+        logger.info(f"Instance: {instance}")
+
+    def restart_instance(self, instance):
+        pass
 
     def __str__(self):
         return "StartServer"
