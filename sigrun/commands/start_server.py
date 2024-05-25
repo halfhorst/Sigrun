@@ -1,12 +1,12 @@
 from loguru import logger
 
-from sigrun.model.messenger import get_messenger
-from sigrun.model.game import Game
-from sigrun.model.discord import CHAT_INPUT_TYPE, STRING_OPTION_TYPE
-from sigrun.exceptions import GameNotFoundError
-from sigrun.commands.base import Command
-from sigrun.cloud.session import ec2_resource
 from sigrun.cloud import ec2
+from sigrun.cloud.session import ec2_resource
+from sigrun.commands.base import Command
+from sigrun.exceptions import GameNotFoundError
+from sigrun.model.discord import CHAT_INPUT_TYPE, STRING_OPTION_TYPE
+from sigrun.model.game import Game
+from sigrun.model.messenger import get_messenger
 
 
 class StartServer(Command):
@@ -59,11 +59,17 @@ class StartServer(Command):
         }
 
     def handler(self):
-        instance = ec2.get_non_termianted_instance(str(self.game), self.server_name)
-        if instance is None:
+        instance = ec2.get_non_terminated_instance(
+            ec2.get__tag_name(str(self.game), self.server_name)
+        )
+
+        # TODO: More than one instance is a critical failure
+
+        if not instance:
             get_messenger()(f"Creating {self.game} server {self.server_name}")
             self.create_instance()
             return
+        instance = instance.pop()
 
         if instance.state["Name"] == "running":
             get_messenger()(

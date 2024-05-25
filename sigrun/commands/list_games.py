@@ -1,6 +1,6 @@
 import json
-from importlib import resources
 import pprint
+from importlib import resources
 
 from sigrun.commands.base import Command
 from sigrun.model.discord import CHAT_INPUT_TYPE
@@ -35,10 +35,11 @@ class ListGames(Command):
                 metadata = json.loads(f.read())
                 games.update({metadata["name"]: short_name})
 
-        format_name = lambda k, v: f"For {k} use '{v}'"
-        get_messenger()(
-            f"I support the following games:\n{', '.join([format_name(k, v) for k, v in games.items()])}"
+        format_name = lambda name, short: f"- '{short}': {name}"
+        game_list = "\n".join(
+            [format_name(name, short) for name, short in games.items()]
         )
+        get_messenger()(f"I support the following game arguments:\n{game_list}")
 
     def __str__(self):
         return "ListGames"
