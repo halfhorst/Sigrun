@@ -1,5 +1,5 @@
 {
-    "name": "Valheim",
+    "pretty_name": "Valheim",
     "storage": 10,
     "instance_type": "m6i.xlarge"
 }

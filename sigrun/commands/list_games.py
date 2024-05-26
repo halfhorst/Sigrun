@@ -33,7 +33,7 @@ class ListGames(Command):
                 f"sigrun.games.{short_name}", "metadata.json"
             ) as f:
                 metadata = json.loads(f.read())
-                games.update({metadata["name"]: short_name})
+                games.update({metadata["pretty_name"]: short_name})
 
         format_name = lambda name, short: f"- '{short}': {name}"
         game_list = "\n".join(

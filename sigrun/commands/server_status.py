@@ -1,7 +1,7 @@
 from sigrun.commands.base import Command
 from sigrun.model.discord import CHAT_INPUT_TYPE, STRING_OPTION_TYPE
-from sigrun.model.messenger import get_messenger
 from sigrun.model.game import Game
+from sigrun.model.messenger import get_messenger
 
 
 class ServerStatus(Command):
@@ -42,7 +42,7 @@ class ServerStatus(Command):
         }
 
     def handler(self):
-        get_messenger()(f"Getting server status for {self.game} {self.server_name}")
+        get_messenger()(f"That's not implemented yet. Sorry!")
 
     def __str__(self):
         return "ServerStatus"

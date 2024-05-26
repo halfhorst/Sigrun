@@ -9,9 +9,9 @@ def get_non_terminated_instances(
 
     filters = []
     if game:
-        filters.append({"Name": "tag:Game", "Values": [game]})
+        filters.append({"Name": "tag:game", "Values": [game]})
     if server_name:
-        filters.append({"Name": "tag:Name", "Values": [server_name]})
+        filters.append({"Name": "tag:server_name", "Values": [server_name]})
     if password:
         filters.append({"Name": "tag:Password", "Values": [password]})
 
@@ -19,5 +19,6 @@ def get_non_terminated_instances(
     return [i for i in instances if i.state["Name"] != "terminated"]
 
 
-# def get_tag_name(game: str, server: str):
-#     return f"{game}-{server}"
+def get_instance_by_id(instance_id: str):
+    instances = ec2_resource.instances.filter(InstanceIds=[instance_id])
+    return [i for i in instances if i.state["Name"] != "terminated"]

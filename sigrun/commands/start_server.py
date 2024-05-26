@@ -1,4 +1,6 @@
-from loguru import logger
+from datetime import datetime, timezone
+
+from botocore.exceptions import ClientError
 
 from sigrun.cloud import ec2
 from sigrun.cloud.session import ec2_resource
@@ -11,14 +13,8 @@ from sigrun.model.messenger import get_messenger
 
 class StartServer(Command):
 
-    def __init__(self, game: str, server_name: str, password: str):
-        try:
-            self.game = Game(game)
-        except ModuleNotFoundError:
-            logger.error(f"Invalid game name {game}")
-            raise GameNotFoundError
-        self.server_name = server_name
-        self.password = password
+    def __init__(self, instance_id: str):
+        self.instance_id = instance_id
 
     @staticmethod
     def get_discord_name():
@@ -39,85 +35,54 @@ class StartServer(Command):
             "options": [
                 {
                     "type": STRING_OPTION_TYPE,
-                    "name": "game",
-                    "description": "The kind of game to start.",
+                    "name": "instance_id",
+                    "description": "The instance id of the server you want to start. You can get this by using `list-servers`.",
                     "required": True,
-                },
-                {
-                    "type": STRING_OPTION_TYPE,
-                    "name": "server_name",
-                    "description": "The name of the server.",
-                    "required": True,
-                },
-                {
-                    "type": STRING_OPTION_TYPE,
-                    "name": "password",
-                    "description": "The server password.",
-                    "required": True,
-                },
+                }
             ],
         }
 
     def handler(self):
-        instance = ec2.get_non_terminated_instances(self.game.name, self.server_name)
+        instance = []
+        try:
+            instance = ec2.get_instance_by_id(self.instance_id)
+        except ClientError as e:
+            if e.response["Error"]["Code"] != "InvalidInstanceID.Malformed":
+                raise e
 
         if not instance:
-            get_messenger()(f"Creating {self.game} server {self.server_name}")
-            self.create_instance()
+            get_messenger()("I couldn't find an instance with that ID!")
             return
-        instance = instance.pop()
 
-        if instance.state["Name"] == "running":
+        instance = instance.pop()
+        state = instance.state["Name"]
+        tags = {tag["Key"]: tag["Value"] for tag in instance.tags}
+        game = tags["pretty_game"]
+        server_name = tags["server_name"]
+        password = tags["password"]
+
+        if state == "running":
+            get_messenger()(f"The {game} server {server_name} is already running!")
+            return
+
+        if state == "stopped":
             get_messenger()(
-                f"{self.game} server {self.server_name} is already running!"
+                f"Booting up {game} server {server_name} now! The password is {password}. Use `list-servers` to monitor its status."
+            )
+            response = instance.start()
+            response = instance.create_tags(
+                Tags=[
+                    {
+                        "Key": "start_time",
+                        "Value": datetime.now(timezone.utc).isoformat(),
+                    },
+                ]
             )
             return
 
-        if instance.state["Name"] == "stopped":
-            get_messenger()(
-                f"Restarting {self.game} server {self.server_name}"
-            )  # TODO: Add instance id
-            self.restart_instance(instance)
-            return
-
         get_messenger()(
-            f"I found an existing instance, but it's in an unrecognized state: {instance.state['Name']}. Please try again"
+            f"I found an existing instance, but it's in an unsupported state: {instance.state['Name'].upper()}. Please try again"
         )
-
-    def create_instance(self):
-        instance = ec2_resource.create_instances(
-            BlockDeviceMappings=[
-                {
-                    "DeviceName": "/dev/sdf",
-                    "Ebs": {
-                        "DeleteOnTermination": False,
-                        "VolumeSize": self.game.storage,
-                        "VolumeType": "gp3",
-                    },
-                }
-            ],
-            ImageId="ami-008fe2fc65df48dac",
-            InstanceType=self.game.instance_type,
-            MaxCount=1,
-            MinCount=1,
-            UserData=self.game.start_script,
-        ).pop()
-
-        instance.create_tags(
-            Tags=[
-                {"Key": "Game", "Value": self.game.name},
-                {
-                    "Key": "Name",
-                    "Value": self.server_name,
-                },
-                {"Key": "Password", "Value": self.password},
-            ]
-        )
-
-        get_messenger()(f"Started {self.game} instance {self.server_name}: {instance}")
-
-    def restart_instance(self, instance):
-        pass
 
     def __str__(self):
         return "StartServer"

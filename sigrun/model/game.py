@@ -9,14 +9,15 @@ from sigrun.exceptions import MissingStartupScriptError
 class Game:
     start_script: str
     name: str
+    pretty_name: str
     storage: int
     instance_type: str
 
     def __init__(self, name: str):
-        name = name.lower()
         # NOTE: The name that a user can use for a particular game in an argument
         #       corresponds to the dir name containing the game's metadata.
         with resources.open_text(f"sigrun.games.{name}", "metadata.json") as f:
+            self.name = name
             metadata = json.loads(f.read())
             for key, value in metadata.items():
                 setattr(self, key, value)
@@ -30,7 +31,7 @@ class Game:
             )
 
     def __str__(self) -> str:
-        return self.name
+        return self.pretty_name
 
     def __repr__(self) -> str:
         return f"Game({self.name})"

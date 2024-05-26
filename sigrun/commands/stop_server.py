@@ -1,23 +1,15 @@
-from loguru import logger
+from botocore.exceptions import ClientError
 
 from sigrun.cloud import ec2
-from sigrun.cloud.session import ec2_resource
 from sigrun.commands.base import Command
-from sigrun.exceptions import GameNotFoundError
 from sigrun.model.discord import CHAT_INPUT_TYPE, STRING_OPTION_TYPE
-from sigrun.model.game import Game
 from sigrun.model.messenger import get_messenger
 
 
 class StopServer(Command):
 
-    def __init__(self, game: str, server_name: str):
-        try:
-            self.game = Game(game)
-        except ModuleNotFoundError:
-            logger.error(f"Invalid game name {game}")
-            raise GameNotFoundError
-        self.server_name = server_name
+    def __init__(self, instance_id: str):
+        self.instance_id = instance_id
 
     @staticmethod
     def get_discord_name():
@@ -37,46 +29,48 @@ class StopServer(Command):
             "options": [
                 {
                     "type": STRING_OPTION_TYPE,
-                    "name": "game",
-                    "description": "The kind of game of the instance you want to stop",
+                    "name": "instance_id",
+                    "description": "The instance id of the server you want to stop. You can get this by using `list-servers`.",
                     "required": True,
-                },
-                {
-                    "type": STRING_OPTION_TYPE,
-                    "name": "server_name",
-                    "description": "The name of the server to stop.",
-                    "required": True,
-                },
+                }
             ],
         }
 
     def handler(self):
-        # TODO: Just stop based on instance id
-        # instance = ec2.get_non_terminated_instance(
-        #     ec2.get_tag_name(str(self.game), self.server_name)
-        # )
-
-        # TODO: More than one instance is a critical failure
+        instance = []
+        try:
+            instance = ec2.get_instance_by_id(self.instance_id)
+        except ClientError as e:
+            if e.response["Error"]["Code"] != "InvalidInstanceID.Malformed":
+                raise e
 
         if not instance:
-            get_messenger()("No instances found with that name!")
+            get_messenger()("I couldn't find an instance with that ID!")
             return
+
         instance = instance.pop()
+        state = instance.state["Name"]
+        tags = {tag["Key"]: tag["Value"] for tag in instance.tags}
+        game = tags["pretty_game"]
+        server_name = tags["server_name"]
+
+        if state == "stopped":
+            get_messenger()(f"The {game} server {server_name} is already stopped!")
+            return
 
         if instance.state["Name"] == "running":
-            get_messenger()(f"Stopping {self.game} server {self.server_name}")
-            self.stop_instance(instance)
-            response = ec2_client.stop_instances(InstanceIds=[instance_id])
+            response = instance.stop()
+            response = instance.delete_tags(
+                Tags=[
+                    {"Key": "start_time"},
+                ]
+            )
+            get_messenger()(f"I've stopped the {game} server {server_name} for you.")
             return
 
-        if instance.state["Name"] == "stopped":
-            get_messenger()(
-                f"{self.game} server {self.server_name} is already stopped!"
-            )
-            pass
-
-    def stop_instance(self, instance):
-        pass
+        get_messenger()(
+            f"I found an existing instance, but it's in an unsupported state: {instance.state['Name'].upper()}. Please try again"
+        )
 
     def __str__(self):
         return "StopServer"

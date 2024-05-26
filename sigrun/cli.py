@@ -3,6 +3,7 @@ import sys
 import click
 
 from sigrun.commands import (
+    CreateServer,
     ListGames,
     ListServers,
     ServerStatus,
@@ -31,24 +32,29 @@ def server_status(game: str, server_name: str):
 
 
 @sigrun.command(help=ListServers.get_cli_description())
-@click.option("-s", "--server_name")
-def list_servers(server_name: str = ""):
-    ListServers(server_name).handler()
+@click.option("-g", "--game")
+def list_servers(game: str = ""):
+    ListServers(game).handler()
 
 
-@sigrun.command(help=StartServer.get_cli_description())
+@sigrun.command(help=CreateServer.get_cli_description())
 @click.argument("game")
 @click.argument("server_name")
 @click.argument("password")
-def start_server(game: str, server_name: str, password: str):
+def create_server(game: str, server_name: str, password: str):
     try:
-        StartServer(game, server_name, password).handler()
+        CreateServer(game, server_name, password).handler()
     except GameNotFoundError:
         sys.exit(1)
 
 
+@sigrun.command(help=StartServer.get_cli_description())
+@click.argument("instance_id")
+def start_server(instance_id: str):
+    StartServer(instance_id).handler()
+
+
 @sigrun.command(help=StopServer.get_cli_description())
-@click.argument("game")
-@click.argument("server_name")
-def stop_server(game: str, server_name: str):
-    StopServer(game, server_name).handler()
+@click.argument("instance_id")
+def stop_server(instance_id: str):
+    StopServer(instance_id).handler()

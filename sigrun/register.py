@@ -1,5 +1,6 @@
 import os
 import pprint
+import time
 
 import click
 import httpx
@@ -47,17 +48,18 @@ def list(v: bool = False):
 def register():
     """DISCORD API: Register Sigrun's commands with your application. This only needs to
     be run once. It's idempotent, you can run it repeatedly."""
-    for command in COMMANDS:
+    for command in COMMANDS.values():
+        time.sleep(1)  # Avoiding rate limiting
         logger.debug(f"Registering command {command.get_discord_metadata()}")
         r = httpx.post(
             COMMANDS_URL, json=command.get_discord_metadata(), headers=AUTH_HEADERS
         )
         if not (r.status_code == 201 or r.status_code == 200):
             logger.error(
-                f"Failed to register {command.get_name()}: {r.status_code} {pprint.pformat(r.json())}"
+                f"Failed to register {command.get_discord_name()}: {r.status_code} {pprint.pformat(r.json())}"
             )
         else:
-            logger.info(f"Registered {command.get_name()}.")
+            logger.info(f"Registered {command.get_discord_name()}.")
 
 
 @discord.command()
