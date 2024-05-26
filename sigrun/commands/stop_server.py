@@ -51,9 +51,10 @@ class StopServer(Command):
         }
 
     def handler(self):
-        instance = ec2.get_non_terminated_instance(
-            ec2.get_tag_name(str(self.game), self.server_name)
-        )
+        # TODO: Just stop based on instance id
+        # instance = ec2.get_non_terminated_instance(
+        #     ec2.get_tag_name(str(self.game), self.server_name)
+        # )
 
         # TODO: More than one instance is a critical failure
 

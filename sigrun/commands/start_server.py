@@ -59,11 +59,7 @@ class StartServer(Command):
         }
 
     def handler(self):
-        instance = ec2.get_non_terminated_instance(
-            ec2.get__tag_name(str(self.game), self.server_name)
-        )
-
-        # TODO: More than one instance is a critical failure
+        instance = ec2.get_non_terminated_instances(self.game.name, self.server_name)
 
         if not instance:
             get_messenger()(f"Creating {self.game} server {self.server_name}")
@@ -78,7 +74,9 @@ class StartServer(Command):
             return
 
         if instance.state["Name"] == "stopped":
-            get_messenger()(f"Restarting {self.game} server {self.server_name}")
+            get_messenger()(
+                f"Restarting {self.game} server {self.server_name}"
+            )  # TODO: Add instance id
             self.restart_instance(instance)
             return
 
@@ -107,16 +105,16 @@ class StartServer(Command):
 
         instance.create_tags(
             Tags=[
+                {"Key": "Game", "Value": self.game.name},
                 {
                     "Key": "Name",
-                    "Value": ec2.get_tag_name(str(self.game), self.server_name),
+                    "Value": self.server_name,
                 },
                 {"Key": "Password", "Value": self.password},
             ]
         )
 
-        get_messenger()(f"Started {self.game} instance {self.server_name}")
-        logger.info(f"Instance: {instance}")
+        get_messenger()(f"Started {self.game} instance {self.server_name}: {instance}")
 
     def restart_instance(self, instance):
         pass

@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from sigrun.cloud import ec2
 from sigrun.cloud.session import ec2_resource
 from sigrun.commands.base import Command
@@ -42,16 +44,28 @@ class ListServers(Command):
             message += f" for {self.game}"
         get_messenger()(message)
 
-        instances = ec2.get_non_terminated_instance()
+        instances = ec2.get_non_terminated_instances()
         # instance_id
         # launch_time
         # calculate uptime
         # from tags: game server name password
         # monitoring: cpu, mem, connections
+        get_messenger()("\n" + "\n".join([self.format_instance(i) for i in instances]))
 
+    def format_instance(self, instance) -> str:
+        uptime = self.calculate_uptime(instance.launch_time)
+        instance_id = instance.id
+        # tags
+        return ""
+
+    @staticmethod
+    def calculate_uptime(foo: datetime):
+        return datetime.now(timezone.utc) - foo
+        # datetime.utcnow()
         import pdb
 
         pdb.set_trace()
+        return ""
 
     def __str__(self):
         return "ListServers"
