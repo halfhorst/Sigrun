@@ -3,11 +3,8 @@ from datetime import datetime, timezone
 from botocore.exceptions import ClientError
 
 from sigrun.cloud import ec2
-from sigrun.cloud.session import ec2_resource
 from sigrun.commands.base import Command
-from sigrun.exceptions import GameNotFoundError
 from sigrun.model.discord import CHAT_INPUT_TYPE, STRING_OPTION_TYPE
-from sigrun.model.game import Game
 from sigrun.model.messenger import get_messenger
 
 

@@ -1,11 +1,5 @@
 from typing import Optional
 
-"""/**
-https://github.com/discord/discord-api-docs/issues/2389
-https://github.com/discord/discord-api-docs/pull/2362/files
-https://discord.com/developers/docs/interactions/receiving-and-responding#followup-messages
-**/"""
-
 
 class Command:
     """The Sigrun command interface. It supports self-registration with Diregistering commands with Discord and two-phase execution."""

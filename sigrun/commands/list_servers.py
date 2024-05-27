@@ -52,6 +52,7 @@ class ListServers(Command):
     def format_instance(self, instance) -> str:
         # TODO: monitoring: cpu, mem, connections
         # TODO: monthly cost to date
+        # TODO: instance type, storage size
         launch_time = instance.launch_time.strftime("%m/%d/%y %H:%M:%S %Z")
         instance_id = instance.id
         state = instance.state["Name"].upper()

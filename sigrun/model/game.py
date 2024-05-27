@@ -22,7 +22,7 @@ class Game:
             for key, value in metadata.items():
                 setattr(self, key, value)
 
-        with resources.open_text(f"sigrun.games.{name}", "start.sh") as f:
+        with resources.open_text(f"sigrun.games.{name}", "startup.sh") as f:
             self.start_script = f.read()
 
         if not hasattr(self, "start_script") or not hasattr(self, "name"):

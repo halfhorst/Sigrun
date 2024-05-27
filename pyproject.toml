@@ -18,8 +18,8 @@ python = "^3.10"
 urllib3 = "^1.26.18"
 
 [tool.poetry.scripts]
-sigrun = 'sigrun.cli:sigrun'
-discord = 'sigrun.register:discord'
+sigrun = 'sigrun.sigrun:sigrun'
+sigrun_discord = 'sigrun.discord:discord'
 
 
 [build-system]

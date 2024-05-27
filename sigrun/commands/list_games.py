@@ -1,5 +1,4 @@
 import json
-import pprint
 from importlib import resources
 
 from sigrun.commands.base import Command
