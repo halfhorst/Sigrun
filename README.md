@@ -96,3 +96,7 @@ A clear enhancement of this setup is to start a sidecar container that monitors 
                        │       │          │          deadline                                            │
                        └───────┘          └──────────────────────────────────────────────────────────────┘
 ```
+
+## Debugging Startup SCripts
+
+Startup script logging is located at `/var/log/cloud-init-output.log`.

@@ -14,11 +14,7 @@ from sigrun.model.messenger import get_messenger
 class CreateServer(Command):
 
     def __init__(self, game: str, server_name: str, password: str):
-        try:
-            self.game = Game(game)
-        except ModuleNotFoundError:
-            logger.error(f"Invalid game name {game}")
-            raise GameNotFoundError
+        self.game_name = game
         self.server_name = server_name
         self.password = password
 
@@ -60,25 +56,34 @@ class CreateServer(Command):
         }
 
     def handler(self):
-        instance = ec2.get_non_terminated_instances(self.game.name, self.server_name)
+        try:
+            game = Game(self.game_name)
+        except GameNotFoundError:
+            logger.error(f"Invalid game name {self.game_name}")
+            get_messenger()(f"I'm sorry, I don't support {self.game_name}.")
+            return
+
+        instance = ec2.get_non_terminated_instances(game.name, self.server_name)
 
         if not instance:
             get_messenger()(
-                f"Ok, I'll create a {self.game} server named {self.server_name}."
+                f"Ok, I'll create a {game} server named {self.server_name}."
             )
-            self.create_instance()
+            self.create_instance(
+                game,
+                self.server_name,
+                self.password,
+            )
             return
         instance = instance.pop()
 
         if instance.state["Name"] == "running":
-            get_messenger()(
-                f"The {self.game} server {self.server_name} is already running!"
-            )
+            get_messenger()(f"The {game} server {self.server_name} is already running!")
             return
 
         if instance.state["Name"] == "stopped":
             get_messenger()(
-                f"I'm restarting {self.game} server {self.server_name}: {instance}."
+                f"I'm restarting {game} server {self.server_name}: {instance}."
             )
             response = instance.start()
             response = instance.create_tags(
@@ -92,44 +97,45 @@ class CreateServer(Command):
             return
 
         get_messenger()(
-            f"I found an existing instance, but it's in an unrecognized state: {instance.state['Name']}. Please try again"
+            f"I found an existing instance, but it's in an unsupported state: {instance.state['Name'].upper()}. Please try again"
         )
 
-    def create_instance(self):
+    @staticmethod
+    def create_instance(game: Game, server_name: str, password: str):
         instance = ec2_resource.create_instances(
             BlockDeviceMappings=[
                 {
-                    "DeviceName": "/dev/sdf",
+                    # DeviceName needs to match device name in AMI
+                    # or will create a second unmounted device
+                    "DeviceName": "/dev/sda1",
                     "Ebs": {
                         "DeleteOnTermination": False,
-                        "VolumeSize": self.game.storage,
+                        "VolumeSize": game.storage,
                         "VolumeType": "gp3",
                     },
                 }
             ],
             ImageId="ami-008fe2fc65df48dac",
-            InstanceType=self.game.instance_type,
+            InstanceType=game.instance_type,
             MaxCount=1,
             MinCount=1,
-            UserData=self.game.start_script,
+            UserData=game.start_script,
         ).pop()
 
         response = instance.create_tags(
             Tags=[
-                {"Key": "game", "Value": self.game.name},
-                {"Key": "pretty_game", "Value": self.game.pretty_name},
+                {"Key": "game", "Value": game.name},
+                {"Key": "pretty_game", "Value": game.pretty_name},
                 {
                     "Key": "server_name",
-                    "Value": self.server_name,
+                    "Value": server_name,
                 },
-                {"Key": "password", "Value": self.password},
+                {"Key": "password", "Value": password},
                 {"Key": "start_time", "Value": datetime.now(timezone.utc).isoformat()},
             ]
         )
 
-        get_messenger()(
-            f"The {self.game} server {self.server_name} has been initialized. It's ID is {instance}."
-        )
+        get_messenger()(f"{server_name} has been initialized. It's ID is {instance}.")
 
     def __str__(self):
         return "StartServer"
