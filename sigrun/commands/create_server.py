@@ -5,7 +5,7 @@ from loguru import logger
 from sigrun.cloud import ec2
 from sigrun.cloud.session import ec2_resource
 from sigrun.commands.base import Command
-from sigrun.exceptions import GameNotFoundError
+from sigrun.exceptions import GameNotFoundError, PasswordTooShortError
 from sigrun.model.discord import CHAT_INPUT_TYPE, STRING_OPTION_TYPE
 from sigrun.model.game import Game
 from sigrun.model.messenger import get_messenger
@@ -102,6 +102,12 @@ class CreateServer(Command):
 
     @staticmethod
     def create_instance(game: Game, server_name: str, password: str):
+        if game.name == "valheim" and len(password) < 5:
+            get_messenger()(
+                f"A Valheim server requires a password at least 5 characters long!"
+            )
+            raise PasswordTooShortError
+
         instance = ec2_resource.create_instances(
             BlockDeviceMappings=[
                 {
@@ -119,7 +125,9 @@ class CreateServer(Command):
             InstanceType=game.instance_type,
             MaxCount=1,
             MinCount=1,
-            UserData=game.start_script,
+            UserData=game.start_script.replace(
+                "PYTHON_SERVER_NAME", server_name
+            ).replace("PYTHON_PASSWORD", password),
         ).pop()
 
         response = instance.create_tags(
@@ -132,10 +140,14 @@ class CreateServer(Command):
                 },
                 {"Key": "password", "Value": password},
                 {"Key": "start_time", "Value": datetime.now(timezone.utc).isoformat()},
+                # This will be the instance's visible name in the console
+                {"Key": "Name", "Value": f"{game.pretty_name}-{server_name}"},
             ]
         )
 
-        get_messenger()(f"{server_name} has been initialized. It's ID is {instance}.")
+        get_messenger()(
+            f"{server_name} has been initialized. It's ID is {instance.id}."
+        )
 
     def __str__(self):
         return "StartServer"

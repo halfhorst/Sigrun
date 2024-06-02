@@ -4,3 +4,7 @@ class GameNotFoundError(Exception):
 
 class MissingStartupScriptError(Exception):
     pass
+
+
+class PasswordTooShortError(Exception):
+    pass
