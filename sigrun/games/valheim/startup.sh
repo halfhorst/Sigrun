@@ -36,8 +36,6 @@ ${STEAMCMD} +force_install_dir ${VALHEIM_ROOT} \
 ### Setup startup functionality ###
 echo ">>> Configuring server startup behavior <<<"
 
-# mkdir -p ${VALHEIM_ROOT}/log
-
 cat <<EOF > ${VALHEIM_ROOT}/start_server.sh
 #!/bin/bash
 export templdpath=\${LD_LIBRARY_PATH}
@@ -50,7 +48,7 @@ ${VALHEIM_ROOT}/valheim_server.x86_64 \
     -password ${PASSWORD} \
     -logFile ${VALHEIM_ROOT}/log/${SERVER_NAME}.log \
     -savedir ${VALHEIM_ROOT}/server_data \
-    -public 1 \
+    -public 0 \
     -batchmode \
     -nographics \
     -crossplay
@@ -67,7 +65,7 @@ ${STEAMCMD} +force_install_dir ${VALHEIM_ROOT} \
                 +login anonymous \
                 +app_update ${VALHEIM_APP_ID} \
                 +quit
-${VALHEIM_ROOT}/start_server.sh >> ${VALHEIM_ROOT}/log/${SERVER_NAME}.log
+${VALHEIM_ROOT}/start_server.sh
 EOF
 chmod +x ${SERVER_WRAPPER}
 
@@ -77,8 +75,11 @@ cat <<EOF > ${SYSTEMD_SERVICE_FILE}
 Description=Valheim dedicated server
 
 [Service]
-ExecStart=${SERVER_WRAPPER}
 Type=simple
+ExecStart=${SERVER_WRAPPER}
+KillSignal=SIGINT
+WorkingDirectory=/usr/games/valheim
+User=root
 
 [Install]
 WantedBy=multi-user.target

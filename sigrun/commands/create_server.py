@@ -140,6 +140,7 @@ class CreateServer(Command):
                 },
                 {"Key": "password", "Value": password},
                 {"Key": "start_time", "Value": datetime.now(timezone.utc).isoformat()},
+                {"Key": "sigrun", "Value": ""},
                 # This will be the instance's visible name in the console
                 {"Key": "Name", "Value": f"{game.pretty_name}-{server_name}"},
             ]
