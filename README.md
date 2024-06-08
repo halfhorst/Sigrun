@@ -1,26 +1,22 @@
 # Sigrun
 
-Sigrun is a Discord bot that helps you manage a Valheim server instance. It was motivated by money. Specifically, I didn't want to pay for an idle server I was maintaining for my friends. Sigrun is a 'personal' bot, not a public one you can add to your own guild. You need to create a Discord application yourself, for your own server, and run your own instance of the bot.
+Sigrun is a Discord bot that helps you manage dedicated servers for games, like Valheim or 7 Days to Die. It was motivated by money. Specifically, I didn't want to pay for an idle server I was maintaining for my friends. Sigrun is a 'personal' bot, not a public one you can add to your own guild. You need to create a Discord application yourself, for your own server, and run your own instance of the bot on your own AWS account.
 
-**This a personal project and I develop it like one. I may break it without warning or do other unruly things.**
+Current games supported: Valheim, 7 Days to Die. Adding new games should be as simple as writing a new startup script for them. That was the goal, anyways
+
+**This a personal project and I develop it like one. I don't guarantee mainline is in a working state or any development cadence.**
 
 ## TODO
-
-- Explore provisioning an ec2 instance and just triggering start/stop
-  - use cheaper EBS in this case
-- Fix "already initiated bug"
-  - attempting to start a server twice is indistinguishable from the bot correctly
-    checking in on the status of an instance it started
+- A watchdog Lambda `cron` to shutdown long-running servers
+- Enable server configuration through `create-server`
 - Add command to copy world data to S3 with an expiration date and provid a presigned URL
-- Avoid writing ephemeral data to DDB and just query it on demand
 - Add a connection API to the host
-- Explore a service discovery url
 
 ## Getting Started
 
 ### Pre-requisites
 
-You need the aws cdk cli, you need python, and you need Docker. You also need an AWS account and a credential setup. The easiest way to do that is with the aws cli.
+You need the aws cdk cli, you need python, you need an AWS account with credentials setup. The easiest way to setup credentials is with the aws cli.
 
 ### Process
 
@@ -30,6 +26,7 @@ You need the aws cdk cli, you need python, and you need Docker. You also need an
 4. Add your bot to your server. Use the generated link in the application interface.
 5. Deploy the infrastructure with cdk. `cd` into the cdk directory and run `deploy.sh`. This will bundle up the lambda code into an artifact and then deploy everything for you.
     - You may want to create a role distinctly for this bot and use its credentials during this process.
+    - I think this requires deployment from a linux machine because of PyNaCL....
 6. Log into the console and grab Sigrun's URL from ApiGateway. Give this to your application as the "Interactions Endpoint Url."
 
 A couple manual quirks still exist. New release coming soon 😉
@@ -40,63 +37,34 @@ At this point, you should be able to execute commands against Sigrun using eithe
 
 ## Interface
 
+Sigrun provides the same interface for controlling server from the command line and from discord. The command line also has an additional interface for managing your discord application, e.g. registering / deleting commands. This allows Sigrun to register itself with your Discord application, and should only need to be done once.
+
 ### Command Line
 
-Use `sigrun --help` for command line documentation. The available commands are:
+**Server control.** Use `sigrun --help` for CLI documentation.
 
-* `delete`: Delete a registered command from your application. This is just for dev convenience.
-* `list`: List the commands registered to your application. This is just for dev convenience.
-* `register`: Register all of Sigrun's commands with your application.
-* `server-status`: Get the Valheim server's status and hardware usage.
-* `start-server`: Shut the Valheim server down.
-* `stop-server`: Start the Valheim server up.
+- `sigrun list-games` - Print the games Sigrun currently supports.
+- `sigrun create-server` - Bootstrap a new game server.
+- `sigrun server-status` - Get the status and instance IDs of the servers Sigrun is currently managing.
+- `sigrun start-server` - Startup an existing game server using its instance ID.
+- `sigrun stop-server` - Stop an existing game server using its instance ID.
 
-### Discord Interactions
+**Discord control.** Use `sigrun_discord --help` for CLI documentation.
 
-`server-status`, `start-server`, and `stop-server` are the interactions available to the Discord application. They are identical to the CLI commands.
-
-## TODO
-- Figure out fargate permissions in CDK
-- monitor and report active connections.
-- move application id from lambda handler into a secret
-- implement the watchdog container for auto-shutdown.
+- `sigrun_discord register` -- Automatically register Sigrun's commands with your Discord application.
+- `sigrun_discord list` -- List the metadata associated with your Discord applications commands. This will give you command ids.
+- `sigrun_discord delete [COMMAND_IDS]` -- Delete a particular Discord command.
 
 ## Design
 
 Originally, the plan for Sigrun was for a persistent bot built from the bottom-up with no Discord wrapper, manually handling the entirety of the discord gateway interaction. That was fun to learn but a huge painbutt. It still exists on a different branch.
 
-That design was overhauled in favor of something that works _now_ instead of something that is a fun project. The new bot is all serverless. It uses a Lambda function to handle all the Discord interactions (the interactions endpoint is rad) and a Fargate service to run the actual game server, with an elastic file system providing persistence. This means each game amounts to a Dockerfile that executes a server, and it should be relatively easy to add more. In short, you tell Sigrun you want to start a server and the Lambda function starts a fargate task of the correct family. The code is not game-agnostic at this point but it was written with that (mostly) in mind. Taking the final step should be minimal work. Server information is dumped into a record in DynamoDb and manipulated on startup/shutdown. Server information is read from these records and mixed with live fargate data to determine currently running worlds and their IP addresses. I found DynamoDb to be much easier than mounting and dealing with server data in EFS (Lambda in VPC == no boto3 for free), and I think it will scale to new features better, too.
+The cloud infrastructure was similarly over-complicated at first. It was serverless fargate and async processing using SQS/SNS to get around the Discor bot response time requirements. 
 
-A clear enhancement of this setup is to start a sidecar container that monitors connections to the game server container and automatically shuts down the fargate task when no one is connected. The existing infrastructure I've seen do that uses a load balancer for monitoring connections. I eschewed a load balancer for cost, so I'd have to find another way.
+Ultimately, I ditched it for a simple EC2 server that's provisioned once and then started and stopped. It is simpler, faster, far easier to debug, and cheaper. Fargate was pointless. I also ditched external storage for isntance metadata (DDB) in favor of querying servers on demand and storing a little information in tags, which is again far easier with EC2 than Fargate. This was very beneficial because external storage was at risk of becoming inconsistent.
 
-```
-                                               Sigrun
-                                             ┌─Stack ─┐                    ┌─World─Server─Stack────────┐
-                                             │        │                    │                           │
-                       ┌───────┐          ┌──┴────────┴────────────────────┴───────────────────────────┴─┐
-                       │       │ Endpoint │                                                              │
-                       │       │ Based    │  ┌─API────┐                    ┌─────────────┐ ┌───────────┐ │
-                       │       │ Bot      │  │ Gateway│                    │ ECS/Fargate │ │Elastic    │ │
-                       │   D   └──────────┼──►        │                    │             │ │File       │ │
-                       │       ◄──────────┼──┐        │   server-status    │ ┌─Valheim─┐ │ │System     │ │
-                       │   I   │          │  └─────▲┌─┘ ┌─stop-server──────┴─► Server  │ │ │           │ │
-   ┌─Discord─┐         │       │          │        ││   │                    │ Task    │ │ ├───────────┤ │
-   │ User    │Slash Cmd│   S   │          │  ANY / ││   │             ┌────┬─►         │===│ Persistent│ │
-   │         ├─────────►       │          │        ││   │             │    │ └─▲───────┘ │ │ Game Data │ │
-   │         │         │   C   │          │  ┌─────┘▼─┐ │             │    │   │Monitor  │ └───────────┘ │
-   │         ◄─────────┤       │          │  │        ├─┘             │    │   │& Kill   │               │
-   │         │ Response│   O   │          │  Lambda   │   ┌────┐  ┌───┴──┐ │   │         │               │
-   └─────────┘         │       │          │  │        ├───► SQS├──►Lambda│ │ ┌─┴───────┐ │               │
-                       │   R   │          │  └───▲────┘   └────┘  └───┬──┘ │ │Watchdog │ │               │
-                       │       │          │      │                    │    │ │Task     │ │               │
-                       │   D   │          │      └────start-server────┘    │ └─────────┘ │               │
-                       │       │          │                                │             │               │
-                       │       │          │          async to meet         └─────────────┘               │
-                       │       │          │          Discord response                                    │
-                       │       │          │          deadline                                            │
-                       └───────┘          └──────────────────────────────────────────────────────────────┘
-```
+Two things I'd like to do in the future is setup a cloud cron job that shuts down service in case you forget, and an on-instance API that lets me query for information like the number of active users.
 
-## Debugging Startup SCripts
+## Debugging the instance
 
-Startup script logging is located at `/var/log/cloud-init-output.log`.
+The instance startup script logs to `/var/log/cloud-init-output.log`. The systemd logs can be examined from a logfile or systemd directly. Either `cat` the logs at `/etc/games/{game}/log/*` or make systemd do it: `journalctl -u {game}.service`.

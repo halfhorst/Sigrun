@@ -150,5 +150,27 @@ class CreateServer(Command):
             f"{server_name} has been initialized. It's ID is {instance.id}."
         )
 
+    @staticmethod
+    def create_security_group(game, server-name, port):
+        response = ec2_client.create_security_group(
+            GroupName="my-security-group",
+            Description="Security group for allowing traffic on port 80",
+        )
+        security_group_id = response["GroupId"]
+        print(f"Security Group Created {security_group_id}")
+
+        # Add an inbound rule to allow traffic on port 80
+        ec2_client.authorize_security_group_ingress(
+            GroupId=security_group_id,
+            IpPermissions=[
+                {
+                    "IpProtocol": "tcp",
+                    "FromPort": 80,
+                    "ToPort": 80,
+                    "IpRanges": [{"CidrIp": "0.0.0.0/0"}],
+                }
+            ],
+        )
+
     def __str__(self):
         return "StartServer"

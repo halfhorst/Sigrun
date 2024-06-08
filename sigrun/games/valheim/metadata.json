@@ -1,5 +1,6 @@
 {
     "pretty_name": "Valheim",
     "storage": 10,
-    "instance_type": "m6i.large"
+    "instance_type": "m6i.large",
+    "port": "2456"
 }

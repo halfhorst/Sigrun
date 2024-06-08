@@ -6,9 +6,7 @@ echo ">>> Performing one-time Valheim server setup <<<"
 SERVER_NAME=PYTHON_SERVER_NAME
 PASSWORD=PYTHON_PASSWORD
 
-### Install steam ###
 echo ">>> Installing Steam <<<"
-
 sudo add-apt-repository multiverse -y
 sudo dpkg --add-architecture i386
 sudo apt -q -y update
@@ -20,34 +18,33 @@ echo steam steam/question select "I AGREE" | debconf-set-selections && \
       libatomic1 libpulse-dev libpulse0 steamcmd net-tools ca-certificates gosu
 STEAMCMD="/usr/games/steamcmd"
 
-### Install Valheim ###
-VALHEIM_ROOT="/usr/games/valheim"
-VALHEIM_APP_ID=896660
-echo "Installing Valheim under ${VALHEIM_ROOT}"
+GAME_ROOT="/usr/games/valheim"
+APP_ID=896660
+echo "Installing Valheim under ${GAME_ROOT}"
 
-mkdir -p ${VALHEIM_ROOT} \
-    && chown -R steam:steam ${VALHEIM_ROOT}
+mkdir -p ${GAME_ROOT} \
+    && chown -R steam:steam ${GAME_ROOT}
 
-${STEAMCMD} +force_install_dir ${VALHEIM_ROOT} \
+${STEAMCMD} +force_install_dir ${GAME_ROOT} \
                 +login anonymous \
-                +app_update ${VALHEIM_APP_ID} \
+                +app_update ${APP_ID} \
                 +quit
 
 ### Setup startup functionality ###
 echo ">>> Configuring server startup behavior <<<"
 
-cat <<EOF > ${VALHEIM_ROOT}/start_server.sh
+cat <<EOF > ${GAME_ROOT}/start_server.sh
 #!/bin/bash
 export templdpath=\${LD_LIBRARY_PATH}
 export LD_LIBRARY_PATH=./linux64:\${LD_LIBRARY_PATH}
 
-${VALHEIM_ROOT}/valheim_server.x86_64 \
+${GAME_ROOT}/valheim_server.x86_64 \
     -name ${SERVER_NAME} \
     -port 2456 \
     -world ${SERVER_NAME} \
     -password ${PASSWORD} \
-    -logFile ${VALHEIM_ROOT}/log/${SERVER_NAME}.log \
-    -savedir ${VALHEIM_ROOT}/server_data \
+    -logFile ${GAME_ROOT}/log/${SERVER_NAME}.log \
+    -savedir ${GAME_ROOT}/server_data \
     -public 0 \
     -batchmode \
     -nographics \
@@ -55,17 +52,17 @@ ${VALHEIM_ROOT}/valheim_server.x86_64 \
 
 export LD_LIBRARY_PATH=\${templdpath}
 EOF
-chmod +x ${VALHEIM_ROOT}/start_server.sh
+chmod +x ${GAME_ROOT}/start_server.sh
 
-mkdir -p ${VALHEIM_ROOT}/log
-SERVER_WRAPPER=${VALHEIM_ROOT}/wrapper.sh
+mkdir -p ${GAME_ROOT}/log
+SERVER_WRAPPER=${GAME_ROOT}/wrapper.sh
 cat <<EOF > ${SERVER_WRAPPER}
 #!/bin/bash
-${STEAMCMD} +force_install_dir ${VALHEIM_ROOT} \
+${STEAMCMD} +force_install_dir ${GAME_ROOT} \
                 +login anonymous \
-                +app_update ${VALHEIM_APP_ID} \
+                +app_update ${APP_ID} \
                 +quit
-${VALHEIM_ROOT}/start_server.sh
+${GAME_ROOT}/start_server.sh
 EOF
 chmod +x ${SERVER_WRAPPER}
 

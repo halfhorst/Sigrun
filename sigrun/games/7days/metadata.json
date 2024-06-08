@@ -1,5 +1,10 @@
 {
     "pretty_name": "Seven Days to Die",
-    "storage": 10,
-    "instance_type": "m6i.large"
+    "storage": 30,
+    "instance_type": "m6i.large",
+    ports: {
+        26900 and UDP ports 26901,
+        26902 and 26903
+    }
+]
 }
