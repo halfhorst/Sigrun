@@ -2,5 +2,14 @@
     "pretty_name": "Valheim",
     "storage": 10,
     "instance_type": "m6i.large",
-    "port": "2456"
+    "ports": [
+        {
+            "port": 2456,
+            "protocol": "tcp"
+        },
+        {
+            "port": 2457,
+            "protocol": "tcp"
+        }
+    ]
 }

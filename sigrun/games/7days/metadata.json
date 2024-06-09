@@ -2,9 +2,22 @@
     "pretty_name": "Seven Days to Die",
     "storage": 30,
     "instance_type": "m6i.large",
-    ports: {
-        26900 and UDP ports 26901,
-        26902 and 26903
-    }
-]
+    "ports": [
+        {
+            "port": 26900,
+            "protocol": "tcp"
+        },
+        {
+            "port": 26901,
+            "protocol": "udp"
+        },
+        {
+            "port": 26902,
+            "protocol": "udp"
+        },
+        {
+            "port": 26903,
+            "protocol": "udp"
+        }
+    ]
 }

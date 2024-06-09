@@ -1,6 +1,8 @@
 import json
+
 from dataclasses import dataclass
 from importlib import resources
+from typing import List, Dict
 
 from sigrun.exceptions import GameNotFoundError, MissingStartupScriptError
 
@@ -12,6 +14,7 @@ class Game:
     pretty_name: str
     storage: int
     instance_type: str
+    ports: List[Dict[str, str]]
 
     def __init__(self, name: str):
         # NOTE: The name that a user can use for a particular game in an argument

@@ -1,9 +1,10 @@
 from datetime import datetime, timezone
+from typing import List, Dict
 
 from loguru import logger
 
 from sigrun.cloud import ec2
-from sigrun.cloud.session import ec2_resource
+from sigrun.cloud.session import ec2_client, ec2_resource
 from sigrun.commands.base import Command
 from sigrun.exceptions import GameNotFoundError, PasswordTooShortError
 from sigrun.model.discord import CHAT_INPUT_TYPE, STRING_OPTION_TYPE
@@ -69,11 +70,7 @@ class CreateServer(Command):
             get_messenger()(
                 f"Ok, I'll create a {game} server named {self.server_name}."
             )
-            self.create_instance(
-                game,
-                self.server_name,
-                self.password,
-            )
+            self.create_instance(game, self.server_name, self.password)
             return
         instance = instance.pop()
 
@@ -100,13 +97,14 @@ class CreateServer(Command):
             f"I found an existing instance, but it's in an unsupported state: {instance.state['Name'].upper()}. Please try again"
         )
 
-    @staticmethod
-    def create_instance(game: Game, server_name: str, password: str):
+    def create_instance(self, game: Game, server_name: str, password: str):
         if game.name == "valheim" and len(password) < 5:
             get_messenger()(
                 f"A Valheim server requires a password at least 5 characters long!"
             )
             raise PasswordTooShortError
+
+        security_group_id = self.create_security_group(game.pretty_name, game.ports)
 
         instance = ec2_resource.create_instances(
             BlockDeviceMappings=[
@@ -125,6 +123,7 @@ class CreateServer(Command):
             InstanceType=game.instance_type,
             MaxCount=1,
             MinCount=1,
+            SecurityGroupIds=[security_group_id],
             UserData=game.start_script.replace(
                 "PYTHON_SERVER_NAME", server_name
             ).replace("PYTHON_PASSWORD", password),
@@ -151,26 +150,37 @@ class CreateServer(Command):
         )
 
     @staticmethod
-    def create_security_group(game, server-name, port):
-        response = ec2_client.create_security_group(
-            GroupName="my-security-group",
-            Description="Security group for allowing traffic on port 80",
+    def create_security_group(name: str, ports: List[Dict]):
+        response = ec2_client.describe_security_groups(
+            Filters=[{"Name": "group-name", "Values": [name]}]
         )
-        security_group_id = response["GroupId"]
-        print(f"Security Group Created {security_group_id}")
 
-        # Add an inbound rule to allow traffic on port 80
-        ec2_client.authorize_security_group_ingress(
-            GroupId=security_group_id,
-            IpPermissions=[
-                {
-                    "IpProtocol": "tcp",
-                    "FromPort": 80,
-                    "ToPort": 80,
-                    "IpRanges": [{"CidrIp": "0.0.0.0/0"}],
-                }
-            ],
+        if response["SecurityGroups"]:
+            sg_id = response["SecurityGroups"].pop()["GroupId"]
+            logger.info(f"Found existing security group {sg_id}")
+            return sg_id
+
+        security_group = ec2_resource.create_security_group(
+            GroupName=name,
+            Description="Security group for allowing inbound traffic",
         )
+
+        logger.info(f"Security Group Created: {security_group.group_id}")
+
+        ports.append({"port": 22, "protocol": "tcp"})
+        permissions = [
+            {
+                "IpProtocol": p["protocol"],
+                "FromPort": p["port"],
+                "ToPort": p["port"],
+                "IpRanges": [{"CidrIp": "0.0.0.0/0"}],
+            }
+            for p in ports
+        ]
+
+        security_group.authorize_ingress(IpPermissions=permissions)
+
+        return security_group.group_id
 
     def __str__(self):
         return "StartServer"

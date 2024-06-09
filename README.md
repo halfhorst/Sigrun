@@ -7,6 +7,7 @@ Current games supported: Valheim, 7 Days to Die. Adding new games should be as s
 **This a personal project and I develop it like one. I don't guarantee mainline is in a working state or any development cadence.**
 
 ## TODO
+- Error handling AWS calls 
 - A watchdog Lambda `cron` to shutdown long-running servers
 - Enable server configuration through `create-server`
 - Add command to copy world data to S3 with an expiration date and provid a presigned URL
@@ -26,7 +27,7 @@ You need the aws cdk cli, you need python, you need an AWS account with credenti
 4. Add your bot to your server. Use the generated link in the application interface.
 5. Deploy the infrastructure with cdk. `cd` into the cdk directory and run `deploy.sh`. This will bundle up the lambda code into an artifact and then deploy everything for you.
     - You may want to create a role distinctly for this bot and use its credentials during this process.
-    - I think this requires deployment from a linux machine because of PyNaCL....
+    - You have to do this from a Linux machine so that the site packages (specifically PyNaCl) that are zipped up are compatible with the lambda runtime, because Python isn't actually totally portable
 6. Log into the console and grab Sigrun's URL from ApiGateway. Give this to your application as the "Interactions Endpoint Url."
 
 A couple manual quirks still exist. New release coming soon 😉
