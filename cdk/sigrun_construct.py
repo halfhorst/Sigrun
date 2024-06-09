@@ -56,7 +56,7 @@ class SigrunConstruct(Construct):
             handler="initial.main",
             timeout=Duration.seconds(10),
             log_retention=logs.RetentionDays.TWO_WEEKS,
-            environment={"DEFERRED_LAMBDA_NAME": self.deferred_handler.function_name},
+            environment={"DEFERRED_LAMBDA_NAME": deferred_handler.function_name},
         )
 
         describe_instances_policy = iam.PolicyStatement(
@@ -64,7 +64,7 @@ class SigrunConstruct(Construct):
         )
 
         lambda_integration = apigateway_integrations.HttpLambdaIntegration(
-            "HttpLambdaIntegration", handler=self.initial_handler
+            "HttpLambdaIntegration", handler=initial_handler
         )
         http_api = apigateway.HttpApi(self, "SigrunHttpApi")
 
