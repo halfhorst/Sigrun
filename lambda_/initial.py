@@ -8,7 +8,6 @@ from loguru import logger
 from nacl.exceptions import BadSignatureError
 from nacl.signing import VerifyKey
 
-
 from sigrun.commands import COMMANDS
 
 secrets_manager = boto3.client("secretsmanager")
@@ -58,6 +57,8 @@ def main(event: events.APIGatewayProxyEventV2, context):
 
     logger.info("Command: " + command_name)
     logger.info("Options: " + pprint.pformat(options))
+    # TODO: The EC2 implementation is much faster, try
+    #       calling directly again insted of deferring
     invoke_deferred(
         {
             "command": command_name,
@@ -68,14 +69,7 @@ def main(event: events.APIGatewayProxyEventV2, context):
         }
     )
 
-    return build_response(
-        200,
-        {"type": 5},
-        # {
-        #     "type": CHANNEL_MESSAGE_WITH_SOURCE,
-        #     "data": {"content": command.get_ack_message()},
-        # },
-    )
+    return build_response(200, {"type": 5})
 
 
 def invoke_deferred(payload: dict):

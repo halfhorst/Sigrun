@@ -4,7 +4,7 @@ from pathlib import Path
 from aws_cdk import Duration, SecretValue
 from aws_cdk import aws_apigatewayv2 as apigateway
 from aws_cdk import aws_apigatewayv2_integrations as apigateway_integrations
-from aws_cdk import aws_dynamodb as dynamodb
+from aws_cdk import aws_iam as iam
 from aws_cdk import aws_lambda as lambda_
 from aws_cdk import aws_logs as logs
 from aws_cdk import aws_secretsmanager as secretsmanager
@@ -34,19 +34,7 @@ class SigrunConstruct(Construct):
                 "You must expose your Discord application pub key as an environment variable named APPLICATION_PUBLIC_KEY"
             )
 
-        table = dynamodb.Table(
-            self,
-            "GameServerTable",
-            table_name="GameServerTable",
-            partition_key=dynamodb.Attribute(
-                name="game", type=dynamodb.AttributeType.STRING
-            ),
-            sort_key=dynamodb.Attribute(
-                name="serverName", type=dynamodb.AttributeType.STRING
-            ),
-        )
-
-        self.deferred_handler = lambda_.Function(
+        deferred_handler = lambda_.Function(
             self,
             "DeferredLambdaHandler",
             runtime=lambda_.Runtime.PYTHON_3_10,
@@ -58,7 +46,7 @@ class SigrunConstruct(Construct):
             log_retention=logs.RetentionDays.TWO_WEEKS,
         )
 
-        self.initial_handler = lambda_.Function(
+        initial_handler = lambda_.Function(
             self,
             "DiscordLambdaHandler",
             runtime=lambda_.Runtime.PYTHON_3_10,
@@ -71,7 +59,9 @@ class SigrunConstruct(Construct):
             environment={"DEFERRED_LAMBDA_NAME": self.deferred_handler.function_name},
         )
 
-        secret.grant_read(self.initial_handler.role)
+        describe_instances_policy = iam.PolicyStatement(
+            actions=["ec2:DescribeInstances"], resources=["*"]
+        )
 
         lambda_integration = apigateway_integrations.HttpLambdaIntegration(
             "HttpLambdaIntegration", handler=self.initial_handler
@@ -84,6 +74,6 @@ class SigrunConstruct(Construct):
             integration=lambda_integration,
         )
 
-        self.deferred_handler.grant_invoke(self.initial_handler)
-
-        table.grant_read_write_data(self.deferred_handler.role)
+        secret.grant_read(initial_handler.role)
+        deferred_handler.grant_invoke(initial_handler)
+        deferred_handler.add_to_role_policy(describe_instances_policy)

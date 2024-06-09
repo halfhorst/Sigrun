@@ -63,7 +63,10 @@ class ListServers(Command):
             get_messenger()("I don't see any instances... Why don't you create one?")
             return
 
-        get_messenger()("\n" + "\n".join([self.format_instance(i) for i in instances]))
+        get_messenger()(
+            "Here are your servers!\n"
+            + "\n".join([self.format_instance(i) for i in instances])
+        )
 
     def format_instance(self, instance) -> str:
         # TODO: monitoring: cpu, mem, connections
@@ -90,7 +93,7 @@ class ListServers(Command):
             uptime = self.calculate_uptime(datetime.fromisoformat(tags["start_time"]))
             descriptors.append(f"Uptime: {uptime}")
 
-        prefix = "\n... "
+        prefix = "\n  ... "
         return f"[{game}]" + "".join([prefix + d for d in descriptors])
 
     @staticmethod
