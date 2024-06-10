@@ -30,7 +30,6 @@ ${STEAMCMD} +force_install_dir ${GAME_ROOT} \
                 +app_update ${APP_ID} \
                 +quit
 
-### Setup startup functionality ###
 echo ">>> Configuring server startup behavior <<<"
 
 cat <<EOF > ${GAME_ROOT}/start_server.sh

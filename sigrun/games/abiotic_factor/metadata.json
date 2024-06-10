@@ -1,0 +1,15 @@
+{
+    "pretty_name": "Abiotic Factor",
+    "storage": 30,
+    "instance_type": "m6i.large",
+    "ports": [
+        {
+            "port": 7777,
+            "protocol": "udp"
+        },
+        {
+            "port": 27015,
+            "protocol": "udp"
+        }
+    ]
+}
