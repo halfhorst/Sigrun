@@ -11,6 +11,7 @@ sudo add-apt-repository multiverse -y
 sudo dpkg --add-architecture i386
 sudo apt -q -y update
 sudo apt -q -y upgrade
+curl -sSL https://get.docker.com | sh
 
 # echo steam steam/question select "I AGREE" | debconf-set-selections && \
 #     echo steam steam/license note '' | debconf-set-selections && \

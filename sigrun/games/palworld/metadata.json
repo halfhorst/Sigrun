@@ -1,0 +1,11 @@
+{
+    "pretty_name": "Palworld",
+    "storage": 10,
+    "instance_type": "t3a.large",
+    "ports": [
+        {
+            "port": 8211,
+            "protocol": "udp"
+        }
+    ]
+}
