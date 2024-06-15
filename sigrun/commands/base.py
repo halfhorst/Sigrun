@@ -1,20 +1,28 @@
-# Lambda EFS mount requires path begin with /mnt.
-SERVER_DATA_ROOT = "/mnt/server_data"
-
-"""/**
-https://github.com/discord/discord-api-docs/issues/2389
-https://github.com/discord/discord-api-docs/pull/2362/files
-https://discord.com/developers/docs/interactions/receiving-and-responding#followup-messages
-**/"""
+from typing import Optional
 
 
-class BaseCommand:
-    """The Sigrun command interface. It supports registerin commands with Discord and two-phase
-       execution."""
-    name: str
+class Command:
+    """The Sigrun command interface. It supports self-registration with Diregistering commands with Discord and two-phase execution."""
 
     @staticmethod
-    def get_cli_description():
+    def get_discord_name() -> str:
+        """The name of this comand."""
+        raise NotImplementedError
+
+    # @staticmethod
+    # def is_deferred() -> bool:
+    #     """Discord interactions must be responded to within 3 seconds. If your command takes longer than this, indicate it is
+    #     deferred by overriding this method. A deferred command will be acknlowedged by `get_ack_message` and then executed
+    #     asynchronously by a second Lambda function."""
+    #     return False
+
+    @staticmethod
+    def get_ack_message() -> str:
+        """The message an interaction is responded to with immediately."""
+        return "I got your request. This is going to take a second."
+
+    @staticmethod
+    def get_cli_description() -> str:
         """A description for the command line interface. You should probably use the same as
         the one in the discord metadata."""
         raise NotImplementedError
@@ -25,24 +33,7 @@ class BaseCommand:
         raise NotImplementedError
 
     @classmethod
-    def handler(cls) -> str:
+    def handler(cls) -> Optional[str]:
         """The handler for the command when it is invoked by the Lambda. This
-           needs to return in 3 seconds."""
+        needs to return in 3 seconds."""
         raise NotImplementedError
-
-    @classmethod
-    def is_deferred(cls) -> bool:
-        """The method that indicates if a command should be deferred. If `True`, after
-           `handler` is run, the command will be placed in an SQS queue for further
-           execution, where a second Lambda will run `follow_up`."""
-        raise NotImplementedError
-
-    @classmethod
-    def deferred_handler(cls) -> str:
-        """A followup method to run if the command is deferred"""
-        raise NotImplementedError
-
-    @classmethod
-    def get_option(cls, name: str, options: list):
-        """Retrieve a named option from the options list."""
-        return [o for o in options if o["name"] == name][0]["value"]

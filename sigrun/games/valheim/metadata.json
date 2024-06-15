@@ -1,0 +1,15 @@
+{
+    "pretty_name": "Valheim",
+    "storage": 10,
+    "instance_type": "t3a.large",
+    "ports": [
+        {
+            "port": 2456,
+            "protocol": "tcp"
+        },
+        {
+            "port": 2457,
+            "protocol": "tcp"
+        }
+    ]
+}

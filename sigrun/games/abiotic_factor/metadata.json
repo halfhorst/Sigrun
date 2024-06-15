@@ -1,0 +1,15 @@
+{
+    "pretty_name": "Abiotic Factor",
+    "storage": 10,
+    "instance_type": "t3a.large",
+    "ports": [
+        {
+            "port": 7777,
+            "protocol": "udp"
+        },
+        {
+            "port": 27015,
+            "protocol": "udp"
+        }
+    ]
+}

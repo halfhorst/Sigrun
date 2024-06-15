@@ -1,12 +1,43 @@
+import json
+
+from dataclasses import dataclass
+from importlib import resources
+from typing import List, Dict
+
+from sigrun.exceptions import GameNotFoundError, MissingStartupScriptError
+
+
+@dataclass
 class Game:
-    """A Sigrun-supported game"""
+    start_script: str
+    name: str
+    pretty_name: str
+    storage: int
+    instance_type: str
+    ports: List[Dict[str, str]]
 
-    def __init__(self, name: str, task_definition: str):
-        self.name = name
-        self.task_definition = name
+    def __init__(self, name: str):
+        # NOTE: The name that a user can use for a particular game in an argument
+        #       corresponds to the dir name containing the game's metadata.
+        try:
+            with resources.open_text(f"sigrun.games.{name}", "metadata.json") as f:
+                self.name = name
+                metadata = json.loads(f.read())
+                for key, value in metadata.items():
+                    setattr(self, key, value)
+        except ModuleNotFoundError:
+            raise GameNotFoundError
 
-    def __str__(self):
-        return self.name
+        with resources.open_text(f"sigrun.games.{name}", "startup.sh") as f:
+            self.start_script = f.read()
 
+        if not hasattr(self, "start_script") or not hasattr(self, "name"):
+            raise MissingStartupScriptError(
+                f"Game {name} does not have valid metadata."
+            )
 
-VALHEIM = Game("Valheim", "Valheim")
+    def __str__(self) -> str:
+        return self.pretty_name
+
+    def __repr__(self) -> str:
+        return f"Game({self.name})"
