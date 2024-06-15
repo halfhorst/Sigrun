@@ -6,30 +6,15 @@ echo ">>> Performing one-time Abiotic Factor server setup <<<"
 SERVER_NAME=PYTHON_SERVER_NAME
 PASSWORD=PYTHON_PASSWORD
 
-echo ">>> Installing Steam <<<"
+echo ">>> Installing Docker <<<"
 sudo add-apt-repository multiverse -y
 sudo dpkg --add-architecture i386
 sudo apt -q -y update
 sudo apt -q -y upgrade
 curl -sSL https://get.docker.com | sh
 
-# echo steam steam/question select "I AGREE" | debconf-set-selections && \
-#     echo steam steam/license note '' | debconf-set-selections && \
-#     DEBIAN_FRONTEND=noninteractive apt-get install -q -y --no-install-recommends \
-#       libatomic1 libpulse-dev libpulse0 steamcmd net-tools ca-certificates gosu
-# STEAMCMD="/usr/games/steamcmd"
-
 GAME_ROOT="/usr/games/abiotic_factor"
-# APP_ID=2857200
-# echo "Installing Abiotic Factor under ${GAME_ROOT}"
-
-mkdir -p ${GAME_ROOT} # \
-    # && chown -R steam:steam ${GAME_ROOT}
-
-# ${STEAMCMD} +force_install_dir ${GAME_ROOT} \
-#                 +login anonymous \
-#                 +app_update ${APP_ID} \
-#                 +quit
+mkdir -p ${GAME_ROOT}
 
 echo ">>> Configuring server startup behavior <<<"
 
@@ -73,7 +58,7 @@ Description=Abiotic Factor dedicated server
 Type=oneshot
 ExecStart=${SERVER_WRAPPER}
 KillSignal=SIGINT
-WorkingDirectory=/usr/games/abiotic_factor
+WorkingDirectory=${GAME_ROOT}
 User=root
 
 [Install]
@@ -84,5 +69,5 @@ chmod +x ${SYSTEMD_SERVICE_FILE}
 systemctl daemon-reload
 systemctl enable abiotic_factor.service
 
-### Starting the server ###
+echo ">>> Starting the server <<<"
 systemctl start abiotic_factor.service

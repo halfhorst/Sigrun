@@ -20,7 +20,7 @@ STEAMCMD="/usr/games/steamcmd"
 
 GAME_ROOT="/usr/games/palworld"
 APP_ID=2394010
-echo "Installing Palworld under ${GAME_ROOT}"
+echo ">>> Installing Palworld under ${GAME_ROOT} <<<"
 
 mkdir -p ${GAME_ROOT} \
     && chown -R steam:steam ${GAME_ROOT}
@@ -32,7 +32,6 @@ ${STEAMCMD} +force_install_dir ${GAME_ROOT} \
 
 echo ">>> Configuring server startup behavior <<<"
 
-mkdir -p ${GAME_ROOT}/log
 SERVER_WRAPPER=${GAME_ROOT}/wrapper.sh
 cat <<EOF > ${SERVER_WRAPPER}
 #!/bin/bash
@@ -53,7 +52,7 @@ Description=Palworld dedicated server
 Type=simple
 ExecStart=${SERVER_WRAPPER}
 KillSignal=SIGINT
-WorkingDirectory=/usr/games/palworld
+WorkingDirectory=${GAME_ROOT}
 User=root
 
 [Install]
@@ -64,5 +63,5 @@ chmod +x ${SYSTEMD_SERVICE_FILE}
 systemctl daemon-reload
 systemctl enable palworld.service
 
-### Starting the server ###
+echo ">>> Starting the server <<<"
 systemctl start palworld.service

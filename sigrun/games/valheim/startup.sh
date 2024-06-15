@@ -20,7 +20,7 @@ STEAMCMD="/usr/games/steamcmd"
 
 GAME_ROOT="/usr/games/valheim"
 APP_ID=896660
-echo "Installing Valheim under ${GAME_ROOT}"
+echo ">>> Installing Valheim under ${GAME_ROOT} <<<"
 
 mkdir -p ${GAME_ROOT} \
     && chown -R steam:steam ${GAME_ROOT}
@@ -74,7 +74,7 @@ Description=Valheim dedicated server
 Type=simple
 ExecStart=${SERVER_WRAPPER}
 KillSignal=SIGINT
-WorkingDirectory=/usr/games/valheim
+WorkingDirectory=${GAME_ROOT}
 User=root
 
 [Install]
@@ -85,5 +85,5 @@ chmod +x ${SYSTEMD_SERVICE_FILE}
 systemctl daemon-reload
 systemctl enable valheim.service
 
-### Starting the server ###
+echo ">>> Starting the server <<<"
 systemctl start valheim.service

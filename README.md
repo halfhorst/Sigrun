@@ -9,8 +9,9 @@ Current games supported: Valheim, 7 Days to Die. Adding new games should be as s
 ## TODO
 - Error handling AWS calls 
 - A watchdog Lambda `cron` to shutdown long-running servers
-- Enable server configuration through `create-server`
+- Enable game-specific server configuration through `create-server`
 - Add command to copy world data to S3 with an expiration date and provid a presigned URL
+    - Eliminate EBS entirely?
 - Add a connection API to the host
 
 ## Getting Started

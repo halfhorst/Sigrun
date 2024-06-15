@@ -21,7 +21,7 @@ echo steam steam/question select "I AGREE" | debconf-set-selections && \
       libatomic1 libpulse-dev libpulse0 steamcmd net-tools ca-certificates gosu
 STEAMCMD="/usr/games/steamcmd"
 
-echo "Installing 7 Days to Die under ${SEVEN_DAYS_ROOT}"
+echo ">>> Installing 7 Days to Die under ${SEVEN_DAYS_ROOT} <<<"
 GAME_ROOT="/usr/games/sevendaystodie"
 APP_ID=294420
 
@@ -60,7 +60,7 @@ Description=7 Days to Die dedicated server
 Type=simple
 ExecStart=${SERVER_WRAPPER}
 KillSignal=SIGINT
-WorkingDirectory=/usr/games/sevendaystodie
+WorkingDirectory=${GAME_ROOT}
 User=root
 
 [Install]
@@ -71,5 +71,5 @@ chmod +x ${SYSTEMD_SERVICE_FILE}
 systemctl daemon-reload
 systemctl enable sevendaystodie.service
 
-### Starting the server ###
+echo ">>> Starting the server <<<"
 systemctl start sevendaystodie.service
