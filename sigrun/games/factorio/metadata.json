@@ -1,0 +1,11 @@
+{
+    "pretty_name": "Factorio",
+    "storage": 5,
+    "instance_type": "t3a.large",
+    "ports": [
+        {
+            "port": 34197,
+            "protocol": "udp"
+        }
+    ]
+}
