@@ -24,22 +24,20 @@ Currently, Sigrun supports **Valheim**, **7 Days to Die**, **Palworld**, **Abiot
 
 You need the aws cdk cli, you need python, you need an AWS account with credentials setup. The easiest way to setup credentials is with the aws cli.
 
-### Process
+### Bootstrapping the Bot
+
+**Note**: Deployment of the Lambda must happen from a Linux machine, because the bot package relies on system specific packages (PyNaCl) that must match the Lambda runtime.
 
 1. Create a discord application in their dev portal. Fill out your own `sigrun.env` with the details from your application and source it.
 2. Install this python package however you like. I used poetry.
 3. Run `sigrun register`. This will register Sigrun's commands with your application.
-4. Add your bot to your server. Use the generated link in the application interface.
+4. Add your bot to your server using the generated link in the application interface.
 5. Deploy the infrastructure with cdk. `cd` into the cdk directory and run `deploy.sh`. This will bundle up the lambda code into an artifact and then deploy everything for you.
-    - You may want to create a role distinctly for this bot and use its credentials during this process.
-    - You have to do this from a Linux machine so that the site packages (specifically PyNaCl) that are zipped up are compatible with the lambda runtime, because Python isn't actually totally portable
+    - export `AWS_PROFILE` to control where the cloud services are deployed. Consider creating a role or account specifically for this bot.
+    - deployment must occur on a linux machine. This is because the discord package relies on a system-dependent package (PyNaCl) that must be compatible witht he Lambda runtime.
 6. Log into the console and grab Sigrun's URL from ApiGateway. Give this to your application as the "Interactions Endpoint Url."
 
-A couple manual quirks still exist. New release coming soon 😉
-1. You need to go to your IAM console and give the lambda invocation role full permissions for ECS and DynamoDb and read permissions for VPC.
-2. adding the application id to the lambda code.
-
-At this point, you should be able to execute commands against Sigrun using either the CLI or Discord interactions, and start a Valheim server instance.
+At this point, you should be able to execute commands against Sigrun using either the CLI or Discord interactions.
 
 ## Interface
 
@@ -71,6 +69,6 @@ Ultimately, I ditched it for a simple EC2 server that's provisioned once and the
 
 Two things I'd like to do in the future is setup a cloud cron job that shuts down service in case you forget, and an on-instance API that lets me query for information like the number of active users.
 
-## Debugging the instance
+## Instance loggin
 
-The instance startup script logs to `/var/log/cloud-init-output.log`. The systemd logs can be examined from a logfile or systemd directly. Either `cat` the logs at `/etc/games/{game}/log/*` or make systemd do it: `journalctl -u {game}.service`.
+The instance startup script logs to `/var/log/cloud-init-output.log`. The systemd logs can be examined from a logfile or systemd directly. Depending on the startup script, some games may log somewhere under the game root, e.g. `/etc/games/{game}/log/*`. Since every game makes use of systemd to configure auto-start, you can always check the systemd logs: `journalctl -u {game}.service`.
