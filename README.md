@@ -2,12 +2,16 @@
 
 Sigrun is a Discord bot that helps you manage dedicated servers for games, like Valheim or 7 Days to Die. It was motivated by money. Specifically, I didn't want to pay for an idle server I was maintaining for my friends. Sigrun is a 'personal' bot, not a public one you can add to your own guild. You need to create a Discord application yourself, for your own server, and run your own instance of the bot on your own AWS account.
 
-Current games supported: Valheim, 7 Days to Die. Adding new games should be as simple as writing a new startup script for them. That was the goal, anyways
+Currently, Sigrun supports **Valheim**, **7 Days to Die**, **Palworld**, **Abiotic Factor**, and **Factorio**. Adding new games has been very simple. It only requires writing a new startup script and defining a small amount of metadata.
 
-**This a personal project and I develop it like one. I don't guarantee mainline is in a working state or any development cadence.**
+> [!CAUTION]
+> This a personal project and I develop it like one. I don't guarantee mainline is in a working state or any development cadence.**
+
+> [!CAUTION]
+> This bot incurs AWS costs that are potentially unbounded. You can create arbitrarily many EC2 instances and EBS volumes, and you can run them forever. Use it at your own risk.
 
 ## TODO
-- Error handling AWS calls 
+- Do some real error handling around calls into AWS
 - A watchdog Lambda `cron` to shutdown long-running servers
 - Enable game-specific server configuration through `create-server`
 - Add command to copy world data to S3 with an expiration date and provid a presigned URL
