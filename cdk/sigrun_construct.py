@@ -60,7 +60,14 @@ class SigrunConstruct(Construct):
         )
 
         describe_instances_policy = iam.PolicyStatement(
-            actions=["ec2:DescribeInstances"], resources=["*"]
+            actions=[
+                "ec2:DescribeInstances",
+                "ec2:StartInstances",
+                "ec2:StopInstances",
+                "ec2:CreateTags",
+                "ec2:DeleteTags",
+            ],
+            resources=["*"],
         )
 
         lambda_integration = apigateway_integrations.HttpLambdaIntegration(
