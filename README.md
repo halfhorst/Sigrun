@@ -1,6 +1,6 @@
 # Sigrun
 
-Sigrun is a Discord bot that helps you manage dedicated servers for games, like Valheim or 7 Days to Die. It was motivated by money. Specifically, I didn't want to pay for an idle server I was maintaining for my friends. Sigrun is a 'personal' bot, not a public one you can add to your own guild. You need to create a Discord application yourself, for your own server, and run your own instance of the bot on your own AWS account.
+Sigrun is a Discord bot that helps you manage dedicated servers for games, like Valheim or 7 Days to Die. I built it because I didn't want to pay for idle servers I was maintaining for my friends, but hosting solutions seem pretty good so the benefits of this setup are debatable. Sigrun is a 'personal' bot, not a public one you can add to your own guild. You need to create a Discord application yourself, for your own server, and run your own instance of the bot on your own AWS account.
 
 Currently, Sigrun supports **Valheim**, **7 Days to Die**, and contains untested startup scripts for **Palworld**, **Abiotic Factor**, and **Factorio**. Adding new games has been very simple. It only requires writing a new startup script and defining a small amount of metadata.
 
@@ -13,10 +13,10 @@ Currently, Sigrun supports **Valheim**, **7 Days to Die**, and contains untested
 ## TODO
 - Do some real error handling around calls into AWS
 - A watchdog Lambda `cron` to shutdown long-running servers
-- Enable game-specific server configuration through `create-server`
-- Add command to copy world data to S3 with an expiration date and provid a presigned URL
+- Game-specific server configuration through `create-server`
+- A copy-world command that dumps to S3 with an expiration date and provid a presigned URL
     - Eliminate EBS entirely?
-- Add a connection API to the host
+- A small on-server API for active player data
 
 ## Getting Started
 
@@ -59,16 +59,10 @@ Sigrun provides the same interface for controlling server from the command line 
 - `sigrun_discord list` -- List the metadata associated with your Discord applications commands. This will give you command ids.
 - `sigrun_discord delete [COMMAND_IDS]` -- Delete a particular Discord command.
 
-## Design
-
-Originally, the plan for Sigrun was for a persistent bot built from the bottom-up with no Discord wrapper, manually handling the entirety of the discord gateway interaction. That was fun to learn but a huge painbutt. It still exists on a different branch.
-
-The cloud infrastructure was similarly over-complicated at first. It was serverless fargate and async processing using SQS/SNS to get around the Discor bot response time requirements. 
-
-Ultimately, I ditched it for a simple EC2 server that's provisioned once and then started and stopped. It is simpler, faster, far easier to debug, and cheaper. Fargate was pointless. I also ditched external storage for isntance metadata (DDB) in favor of querying servers on demand and storing a little information in tags, which is again far easier with EC2 than Fargate. This was very beneficial because external storage was at risk of becoming inconsistent.
-
-Two things I'd like to do in the future is setup a cloud cron job that shuts down service in case you forget, and an on-instance API that lets me query for information like the number of active users.
-
-## Instance loggin
+## Instance logging
 
 The instance startup script logs to `/var/log/cloud-init-output.log`. The systemd logs can be examined from a logfile or systemd directly. Depending on the startup script, some games may log somewhere under the game root, e.g. `/etc/games/{game}/log/*`. Since every game makes use of systemd to configure auto-start, you can always check the systemd logs: `journalctl -u {game}.service`.
+
+## History
+
+Originally, Sigrun was a little bit over-complicated, running on serverless fargate with async SQS/SNS processing to get around the Discord bot response time requirements. I ditched serverless containers for a simple EC2 server that's provisioned once and then started and stopped. It's simpler, faster, far easier to debug, and cheaper. I also ditched external storage (DDB) for instance metadata in favor of querying EC2 metadata on demand and using tags, which is again far easier and not at risk of becoming inconsistent.
