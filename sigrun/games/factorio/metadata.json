@@ -1,6 +1,6 @@
 {
     "pretty_name": "Factorio",
-    "storage": 5,
+    "storage": 8,
     "instance_type": "t3a.large",
     "ports": [
         {
